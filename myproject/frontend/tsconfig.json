@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "allowJs": true,       // Разрешить использование JavaScript файлов
+    "checkJs": false,      // Отключить проверку типов в JavaScript
+    "jsx": "react",        // Поддержка React JSX
+    "target": "es6",       // Таргетируем современный JavaScript
+    "module": "esnext",    // Модульный формат
+    "moduleResolution": "node", // Используем разрешение модулей Node.js
+    "skipLibCheck": true   // Пропустить проверку типов зависимостей
+  },
+  "include": ["src/**/*"], // Включаем файлы в папке src
+  "exclude": ["node_modules"] // Исключаем папку node_modules
+}
