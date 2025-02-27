@@ -73,11 +73,19 @@ function Header() {
           <Link to="/routes" className="hover:text-gray-300">
             Продукты
           </Link>
+          <div>
+            <Link to="/add-product" className="hover:text-gray-300">
+              Добавить продукт
+            </Link>
+          </div>
         </nav>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 text-white hover:bg-gray-700">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 text-white hover:bg-gray-700"
+            >
               <img
                 src={avatar}
                 alt="avatar"

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'authentication',
     'rest_framework_simplejwt',
+    'products'
 ]
 INSTALLED_APPS += ['rest_framework_simplejwt.token_blacklist']
 MIDDLEWARE = [
@@ -62,6 +63,7 @@ REST_FRAMEWORK = {
     ),
 }
 SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('Bearer',),
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Увеличиваем время жизни access-токена до 1 часа
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Увеличиваем время жизни refresh-токена до 7 дней
     'ROTATE_REFRESH_TOKENS': True,                   # Автоматически обновлять refresh-токен при каждом запросе
@@ -70,7 +72,6 @@ SIMPLE_JWT = {
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://react.example.com",
