@@ -78,6 +78,14 @@ function Header() {
               Добавить продукт
             </Link>
           </div>
+          <div>
+            <Link
+              to="/cart"
+              className="flex items-center text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            >
+              Корзина
+            </Link>
+          </div>
         </nav>
 
         <DropdownMenu>
@@ -106,9 +114,7 @@ function Header() {
               {isDarkMode ? "Светлая тема" : "Тёмная тема"}
             </DropdownMenuItem>
             {isAuthenticated ? (
-              <DropdownMenuItem onClick={handleLogout}>
-                Выйти
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>Выйти</DropdownMenuItem>
             ) : (
               <DropdownMenuItem onClick={() => navigate("/login")}>
                 Войти

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
@@ -40,21 +41,16 @@ const HomePage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
-              <div
+              <Link
                 key={product.id}
-                className="bg-white dark:bg-gray-800 shadow-md rounded p-4"
+                to={`/product/${product.id}`}
+                className="bg-white dark:bg-gray-800 shadow-md rounded p-4 hover:shadow-lg transition-shadow"
               >
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
                   {product.name}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  {product.description}
-                </p>
-                <p className="text-gray-800 dark:text-gray-200">
                   Цена: {product.price}
-                </p>
-                <p className="text-gray-800 dark:text-gray-200">
-                  Категория: {product.category}
                 </p>
                 {product.image && (
                   <img
@@ -63,7 +59,7 @@ const HomePage = () => {
                     className="mt-2 rounded"
                   />
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         )}
