@@ -1,13 +1,18 @@
 from django.shortcuts import render
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from .models import Product
-from .models import Category
 from rest_framework import viewsets
-from .models import CartItem
-from .serializers import ProductSerializer, CategorySerializer, CartItemSerializer, CartItemDetailSerializer
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.decorators import action
+from .models import Product, Category, CartItem, Order  # Добавьте Order
+from .serializers import (
+    ProductSerializer, 
+    CategorySerializer, 
+    CartItemSerializer, 
+    CartItemDetailSerializer,
+    OrderSerializer  # Добавьте этот импорт
+)
 
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
@@ -76,3 +81,18 @@ class CartItemViewSet(viewsets.ModelViewSet):
             return super().list(request, *args, **kwargs)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
+class OrderViewSet(viewsets.ModelViewSet):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['delete'])
+    def clear(self, request):
+        CartItem.objects.filter(user=request.user).delete()
+        return Response(status=204)

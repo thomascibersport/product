@@ -54,7 +54,20 @@ const ProductDetail = () => {
         Продукт не найден
       </div>
     );
+
+  // Рассчитываем общую стоимость: цена * количество
+  const totalCost = (Number(displayProduct.price) * quantity).toFixed(2);
+
   const handleAddToCart = async () => {
+    // Проверяем, чтобы количество не превышало доступное на складе
+    if (quantity > displayProduct.quantity) {
+      setCartMessage({
+        type: "error",
+        text: `Нельзя добавить больше ${displayProduct.quantity} единиц товара. Доступно: ${displayProduct.quantity}.`,
+      });
+      return;
+    }
+
     const token = Cookies.get("token");
     if (!token) {
       alert("Пожалуйста, войдите в систему, чтобы добавить товар в корзину");
@@ -105,6 +118,7 @@ const ProductDetail = () => {
       setIsAddingToCart(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <Header />
@@ -137,7 +151,7 @@ const ProductDetail = () => {
                 {displayProduct.description}
               </p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
-                Цена: {displayProduct.price}
+                Цена за 1 {displayProduct.unit ? displayProduct.unit : "ед."}: {displayProduct.price} руб.
               </p>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
                 Категория: {displayProduct.category}
@@ -166,7 +180,13 @@ const ProductDetail = () => {
                   +
                 </button>
               </div>
-              {/* Кнопка "Добавить в корзину" */}-
+              {/* Вывод общей стоимости */}
+              <div className="mt-4">
+                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  Общая стоимость: {totalCost} руб.
+                </p>
+              </div>
+              {/* Кнопка "Добавить в корзину" */}
               <div className="mt-6">
                 <button
                   onClick={handleAddToCart}

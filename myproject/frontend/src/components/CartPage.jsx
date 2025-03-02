@@ -8,6 +8,9 @@ const CartPage = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deliveryType, setDeliveryType] = useState("delivery");
+  const [paymentType, setPaymentType] = useState("card");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,11 +22,14 @@ const CartPage = () => {
       }
 
       try {
-        const response = await axios.get("http://localhost:8000/api/cart/items/", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await axios.get(
+          "http://localhost:8000/api/cart/items/",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
         setCartItems(response.data);
       } catch (err) {
         setError(err.message);
@@ -47,8 +53,8 @@ const CartPage = () => {
           },
         }
       );
-      setCartItems(items =>
-        items.map(item =>
+      setCartItems((items) =>
+        items.map((item) =>
           item.id === itemId ? { ...item, quantity: newQuantity } : item
         )
       );
@@ -65,24 +71,78 @@ const CartPage = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      setCartItems(items => items.filter(item => item.id !== itemId));
+      setCartItems((items) => items.filter((item) => item.id !== itemId));
     } catch (error) {
       console.error("Ошибка удаления товара:", error);
     }
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce(
-      (sum, item) => sum + item.product.price * item.quantity,
-      0
-    ).toFixed(2);
+    return cartItems
+      .reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+      .toFixed(2);
+  };
+
+  const handleCreateOrder = async () => {
+    const token = Cookies.get("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (deliveryType === "delivery" && !deliveryAddress) {
+      alert("Пожалуйста, укажите адрес доставки");
+      return;
+    }
+
+    const orderData = {
+      items: cartItems.map((item) => ({
+        product: item.product.id,
+        quantity: item.quantity,
+        price: item.product.price,
+      })),
+      delivery_type: deliveryType,
+      payment_method: paymentType,
+      total_amount: calculateTotal(),
+      address: deliveryType === "delivery" ? deliveryAddress : null,
+    };
+
+    try {
+      await axios.post("http://localhost:8000/api/orders/", orderData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Очистка корзины
+      await axios.delete("http://localhost:8000/api/cart/clear/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setCartItems([]);
+
+      alert("Заказ успешно оформлен!");
+      navigate("/orders");
+    } catch (error) {
+      if (error.response?.data?.detail) {
+        alert(error.response.data.detail);
+      } else {
+        console.error("Ошибка оформления заказа:", error);
+        alert("Произошла ошибка при оформлении заказа");
+      }
+    }
   };
 
   if (loading)
-    return <div className="text-center py-10 text-gray-600">Загрузка корзины...</div>;
+    return (
+      <div className="text-center py-10 text-gray-600">Загрузка корзины...</div>
+    );
 
   if (error)
-    return <div className="text-center py-10 text-red-500">Ошибка: {error}</div>;
+    return (
+      <div className="text-center py-10 text-red-500">Ошибка: {error}</div>
+    );
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -91,7 +151,7 @@ const CartPage = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
           Ваша корзина
         </h1>
-        
+
         {cartItems.length === 0 ? (
           <div className="text-center py-10 text-gray-600 dark:text-gray-400">
             Корзина пуста
@@ -162,8 +222,8 @@ const CartPage = () => {
             ))}
 
             {/* Итого */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6">
-              <div className="flex justify-between items-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-center mb-4">
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
                   Итого:
                 </span>
@@ -171,6 +231,85 @@ const CartPage = () => {
                   {calculateTotal()} ₽
                 </span>
               </div>
+
+              {/* Выбор способа доставки */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-4">Способ получения</h3>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="delivery"
+                      value="delivery"
+                      checked={deliveryType === "delivery"}
+                      onChange={(e) => setDeliveryType(e.target.value)}
+                      className="mr-2"
+                    />
+                    Доставка
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="delivery"
+                      value="pickup"
+                      checked={deliveryType === "pickup"}
+                      onChange={(e) => setDeliveryType(e.target.value)}
+                      className="mr-2"
+                    />
+                    Самовывоз
+                  </label>
+                </div>
+
+                {deliveryType === "delivery" && (
+                  <div className="mt-4">
+                    <input
+                      type="text"
+                      placeholder="Введите адрес доставки"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Выбор способа оплаты */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-4">Способ оплаты</h3>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="card"
+                      checked={paymentType === "card"}
+                      onChange={(e) => setPaymentType(e.target.value)}
+                      className="mr-2"
+                    />
+                    Картой онлайн
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="cash"
+                      checked={paymentType === "cash"}
+                      onChange={(e) => setPaymentType(e.target.value)}
+                      className="mr-2"
+                    />
+                    Наличными
+                  </label>
+                </div>
+              </div>
+
+              {/* Кнопка оформления заказа */}
+              <button
+                onClick={handleCreateOrder}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition-colors"
+              >
+                Оформить заказ
+              </button>
             </div>
           </div>
         )}
