@@ -7,7 +7,7 @@ import EditProfilePage from "./pages/EditProfilePage";
 import AddProductForm from "./components/AddProductForm"; // Новый импорт
 import ProductDetail from "../src/components/ProductDetail";
 import CartPage from "../src/components/CartPage";
-
+import OrdersPage from "../src/pages/OrdersPage";
 const App = () => {
   return (
     <Router>
@@ -20,11 +20,11 @@ const App = () => {
         <Route path="/add-product" element={<AddProductForm />} /> {/* Новый маршрут */}
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
       </Routes>
     </Router>
   );
 };
 
 export default App;
-
 

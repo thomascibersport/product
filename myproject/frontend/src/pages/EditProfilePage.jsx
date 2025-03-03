@@ -11,7 +11,7 @@ import { getToken } from "../utils/auth";
 import InputMask from "react-input-mask";
 import ReactCrop from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-
+import "../App.css";
 function EditProfilePage() {
   const navigate = useNavigate();
 
@@ -19,7 +19,15 @@ function EditProfilePage() {
   // Изображение для обрезки (выбранное пользователем)
   const [src, setSrc] = useState(null);
   // Настройки обрезки (начальное значение)
-  const [crop, setCrop] = useState({ unit: "%", width: 80, aspect: 1 });
+  const [crop, setCrop] = useState({
+    unit: "px",
+    x: 0,
+    y: 0,
+    width: 200,
+    height: 200,
+    aspect: 1,
+  });
+
   // Завершённые настройки обрезки
   const [completedCrop, setCompletedCrop] = useState(null);
   // Ссылка на изображение в DOM для получения его размеров
@@ -68,26 +76,35 @@ function EditProfilePage() {
 
   // Функция для получения обрезанного изображения в виде Blob
   const getCroppedImg = (image, crop, fileName) => {
+    // Задаём фиксированные размеры итогового изображения:
+    const desiredWidth = 200;
+    const desiredHeight = 200;
+
+    // Создаём canvas с фиксированными размерами:
     const canvas = document.createElement("canvas");
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-    canvas.width = crop.width;
-    canvas.height = crop.height;
+    canvas.width = desiredWidth;
+    canvas.height = desiredHeight;
     const ctx = canvas.getContext("2d");
 
+    // Вычисляем масштаб по оси X и Y относительно исходных размеров
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+
+    // Рисуем выбранную область на canvas, масштабируя её до нужного размера
     ctx.drawImage(
       image,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
-      0,
-      0,
-      crop.width,
-      crop.height
+      crop.x * scaleX, // Начальная точка по X в исходном изображении
+      crop.y * scaleY, // Начальная точка по Y в исходном изображении
+      crop.width * scaleX, // Ширина обрезанной области в исходном изображении
+      crop.height * scaleY, // Высота обрезанной области в исходном изображении
+      0, // Начальная точка по X на canvas
+      0, // Начальная точка по Y на canvas
+      desiredWidth, // Итоговая ширина
+      desiredHeight // Итоговая высота
     );
 
     return new Promise((resolve, reject) => {
+      // Получаем Blob с итоговым изображением в формате JPEG (можно поменять на image/png, если нужно)
       canvas.toBlob((blob) => {
         if (!blob) {
           return reject(new Error("Не удалось создать изображение."));
@@ -179,7 +196,21 @@ function EditProfilePage() {
 
     fetchUserData();
   }, [navigate]);
+  useEffect(() => {
+    const handleResize = () => {
+      if (imageRef.current) {
+        const { width, height } = imageRef.current;
+        setCrop((prev) => ({
+          ...prev,
+          width: Math.min(prev.width, width),
+          height: Math.min(prev.height, height),
+        }));
+      }
+    };
 
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   /*** Функции для редактирования профиля ***/
   const handleSaveProfile = async () => {
     try {
@@ -257,214 +288,282 @@ function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
-      <div className="container mx-auto p-6">
-        <h1 className="text-3xl font-bold text-center mb-6 text-gray-800 dark:text-gray-200">
-          Редактирование профиля
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+          ✏️ Редактирование профиля
         </h1>
-        <div className="max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          {/* Секция работы с аватаркой */}
-          <div className="flex justify-center mb-4">
-            <img
-              src={preview}
-              alt="Avatar Preview"
-              className="w-32 h-32 rounded-full object-cover border border-gray-200"
-            />
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-8">
+          {/* Секция аватарки в общем стиле */}
+          <div className="space-y-6">
+            <div className="flex flex-col items-center gap-6">
+              <div className="relative group cursor-pointer">
+                <label className="block w-32 h-32 rounded-full overflow-hidden">
+                  <img
+                    src={preview}
+                    alt="Avatar Preview"
+                    className="w-full h-full object-cover object-center border-4 border-blue-100 dark:border-blue-900/50 shadow-lg scale-105 transition-transform group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <span className="text-white text-sm font-medium">
+                      Изменить
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="avatarInput"
+                  />
+                </label>
+              </div>
+
+              <div className="w-full space-y-4">
+
+
+                {src && (
+                  <div className="space-y-4">
+                    <ReactCrop
+                      crop={crop}
+                      onChange={(newCrop) => setCrop({ ...crop, ...newCrop })}
+                      onComplete={(c) => setCompletedCrop(c)}
+                      className="border-2 border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                    >
+                      <img
+                        ref={imageRef}
+                        src={src}
+                        alt="Crop source"
+                        className="max-h-96 w-full object-contain"
+                        onLoad={(e) => {
+                          const { naturalWidth: nw, naturalHeight: nh } =
+                            e.currentTarget;
+                          const minSize = Math.min(nw, nh, 200);
+                          setCrop({
+                            unit: "px",
+                            x: (nw - minSize) / 2,
+                            y: (nh - minSize) / 2,
+                            width: minSize,
+                            height: minSize,
+                            aspect: 1,
+                          });
+                        }}
+                      />
+                    </ReactCrop>
+
+                    <div className="flex gap-4">
+                      <button
+                        onClick={handleCropConfirm}
+                        className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all"
+                      >
+                        Применить обрезку
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {croppedBlob && (
+                  <button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg
+                          className="animate-spin h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Загрузка...
+                      </span>
+                    ) : (
+                      "Сохранить новое фото"
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="mb-4">
-            <label
-              htmlFor="avatarFile"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Выберите изображение
-            </label>
-            <input
-              id="avatarFile"
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-          </div>
-          {src && (
-            <div className="mb-4">
-              <ReactCrop
-                crop={crop}
-                onChange={(newCrop) => setCrop(newCrop)}
-                onComplete={(c) => setCompletedCrop(c)}
-              >
-                <img
-                  ref={imageRef}
-                  src={src}
-                  alt="Crop source"
-                  className="max-w-full"
+          {/* Основная форма */}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Имя пользователя
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
                 />
-              </ReactCrop>
-              <button
-                onClick={handleCropConfirm}
-                className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition"
-              >
-                Подтвердить обрезку
-              </button>
-            </div>
-          )}
+              </div>
 
-          {croppedBlob && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Имя
+                </label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Фамилия
+                </label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Отчество
+                </label>
+                <input
+                  type="text"
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Телефон
+                </label>
+                <InputMask
+                  mask="+7 (999) 999-99-99"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
+                />
+              </div>
+            </div>
+
             <button
-              onClick={handleUpload}
-              disabled={uploading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-md transition mb-6"
+              onClick={handleSaveProfile}
+              className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
             >
-              {uploading ? "Загружается..." : "Загрузить аватар"}
+              Сохранить изменения
             </button>
-          )}
+          </div>
 
-          {/* Секция редактирования профиля */}
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Имя пользователя
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Имя
-            </label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Фамилия
-            </label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Отчество
-            </label>
-            <input
-              type="text"
-              value={middleName}
-              onChange={(e) => setMiddleName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Телефон
-            </label>
-            <InputMask
-              mask="+7 (999) 999-99-99"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-            />
-          </div>
-          <button
-            onClick={handleSaveProfile}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition mb-6"
-          >
-            Сохранить профиль
-          </button>
+          {/* Смена пароля */}
+          <div className="space-y-6 pt-8 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+              🔒 Смена пароля
+            </h3>
 
-          {/* Секция смены пароля */}
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-            Сменить пароль
-          </h2>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Старый пароль
-            </label>
-            <div className="relative">
-              <input
-                type={showOldPassword ? "text" : "password"}
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Текущий пароль
+                </label>
+                <div className="relative">
+                  <input
+                    type={showOldPassword ? "text" : "password"}
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-12"
+                  />
+                  <button
+                    onClick={() => setShowOldPassword(!showOldPassword)}
+                    className="absolute right-3 top-3 text-gray-500 dark:text-gray-400 hover:text-blue-500"
+                  >
+                    {showOldPassword ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Новый пароль
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-12"
+                  />
+                  <button
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-3 text-gray-500 dark:text-gray-400 hover:text-blue-500"
+                  >
+                    {showNewPassword ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Подтвердите новый пароль
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmNewPassword ? "text" : "password"}
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-12"
+                  />
+                  <button
+                    onClick={() =>
+                      setShowConfirmNewPassword(!showConfirmNewPassword)
+                    }
+                    className="absolute right-3 top-3 text-gray-500 dark:text-gray-400 hover:text-blue-500"
+                  >
+                    {showConfirmNewPassword ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                </div>
+              </div>
+
               <button
-                type="button"
-                onClick={() => setShowOldPassword(!showOldPassword)}
-                className="absolute inset-y-0 right-0 px-3 py-2"
+                onClick={handleChangePassword}
+                className="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
-                {showOldPassword ? "👁️" : "👁️‍🗨️"}
+                Сменить пароль
               </button>
             </div>
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Новый пароль
-            </label>
-            <div className="relative">
-              <input
-                type={showNewPassword ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute inset-y-0 right-0 px-3 py-2"
-              >
-                {showNewPassword ? "👁️" : "👁️‍🗨️"}
-              </button>
-            </div>
-          </div>
-          <div className="mb-6">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">
-              Подтверждение нового пароля
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmNewPassword ? "text" : "password"}
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setShowConfirmNewPassword(!showConfirmNewPassword)
-                }
-                className="absolute inset-y-0 right-0 px-3 py-2"
-              >
-                {showConfirmNewPassword ? "👁️" : "👁️‍🗨️"}
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={handleChangePassword}
-            className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition"
-          >
-            Сменить пароль
-          </button>
         </div>
       </div>
     </div>

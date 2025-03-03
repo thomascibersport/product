@@ -70,8 +70,8 @@ function Header() {
         </Link>
 
         <nav className="flex space-x-4">
-          <Link to="/routes" className="hover:text-gray-300">
-            Продукты
+          <Link to="/orders" className="hover:text-gray-300">
+            Мои заказы
           </Link>
           <div>
             <Link to="/add-product" className="hover:text-gray-300">

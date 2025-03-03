@@ -85,3 +85,11 @@ class OrderSerializer(serializers.ModelSerializer):
                 OrderItem.objects.create(order=order, **item_data)
             
             return order
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'delivery_type', 'payment_method', 
+                 'total_amount', 'address', 'items', 'created_at']
+        read_only_fields = ['user']

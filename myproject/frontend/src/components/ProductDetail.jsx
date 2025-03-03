@@ -120,96 +120,108 @@ const ProductDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 md:p-8">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8">
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+            🛒 {displayProduct.name}
+          </h1>
+
           <div className="flex flex-col md:flex-row gap-8">
             {/* Изображение продукта */}
             <div className="w-full md:w-1/2">
-              {displayProduct.image ? (
-                <img
-                  src={displayProduct.image}
-                  alt={displayProduct.name}
-                  className="w-full h-auto object-cover rounded-lg shadow-md"
-                />
-              ) : (
-                <div className="w-full h-64 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-lg shadow-md">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Нет изображения
-                  </span>
+              <div className="relative group rounded-xl overflow-hidden shadow-lg border-4 border-blue-100 dark:border-blue-900/50">
+                {displayProduct.image ? (
+                  <img
+                    src={displayProduct.image}
+                    alt={displayProduct.name}
+                    className="w-full h-auto object-cover aspect-square transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full aspect-square flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                    <span className="text-gray-500 dark:text-gray-400 text-lg">
+                      Нет изображения
+                    </span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="text-white text-lg font-medium">Просмотр</span>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Детали продукта */}
-            <div className="w-full md:w-1/2">
-              <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">
-                {displayProduct.name}
-              </h1>
-              <p className="text-gray-700 dark:text-gray-300 mb-4">
-                {displayProduct.description}
-              </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
-                Цена за 1 {displayProduct.unit ? displayProduct.unit : "ед."}: {displayProduct.price} руб.
-              </p>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Категория: {displayProduct.category}
-              </p>
-              {/* Выбор количества */}
-              <div className="mt-4 flex items-center">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 px-3 py-1 rounded-l transition duration-200"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) =>
-                    setQuantity(Math.max(1, parseInt(e.target.value)))
-                  }
-                  className="w-16 text-center bg-white dark:bg-gray-800 border-t border-b border-gray-300 dark:border-gray-600 focus:outline-none py-1"
-                  min="1"
-                />
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 px-3 py-1 rounded-r transition duration-200"
-                >
-                  +
-                </button>
-              </div>
-              {/* Вывод общей стоимости */}
-              <div className="mt-4">
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  Общая стоимость: {totalCost} руб.
+            <div className="w-full md:w-1/2 space-y-6">
+              <div className="space-y-4">
+                <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
+                  {displayProduct.description}
                 </p>
-              </div>
-              {/* Кнопка "Добавить в корзину" */}
-              <div className="mt-6">
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isAddingToCart}
-                  className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out ${
-                    isAddingToCart ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {isAddingToCart ? "Добавление..." : "Добавить в корзину"}
-                </button>
 
-                {cartMessage && (
-                  <div
-                    className={`mt-4 p-3 rounded-lg ${
-                      cartMessage.type === "success"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {cartMessage.text}
-                  </div>
-                )}
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    Цена за 1 {displayProduct.unit || "ед."}: {displayProduct.price} руб.
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-2">
+                    Категория: {displayProduct.category}
+                  </p>
+                </div>
               </div>
+
+              {/* Выбор количества */}
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={quantity <= 1}
+                    className="w-10 h-10 text-gray-600 dark:text-gray-400 rounded-l-lg flex items-center justify-center hover:text-blue-500 transition-colors disabled:opacity-50"
+                  >
+                    −
+                  </button>
+                  <span className="w-16 h-10 bg-white dark:bg-gray-800  border-gray-200 dark:border-gray-700 flex items-center justify-center font-medium dark:text-gray-200">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 text-gray-600 dark:text-gray-400 rounded-r-lg flex items-center justify-center hover:text-blue-500 transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="text-xl font-bold text-gray-800 dark:text-white p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                  Общая стоимость: {totalCost} руб.
+                </div>
+              </div>
+
+              {/* Кнопка добавления в корзину */}
+              <button
+                onClick={handleAddToCart}
+                disabled={isAddingToCart}
+                className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAddingToCart ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Добавление...
+                  </div>
+                ) : (
+                  "Добавить в корзину 🛒"
+                )}
+              </button>
+
+              {cartMessage && (
+                <div className={`p-4 rounded-xl ${
+                  cartMessage.type === "success" 
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                    : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                }`}>
+                  {cartMessage.text}
+                </div>
+              )}
             </div>
           </div>
         </div>
