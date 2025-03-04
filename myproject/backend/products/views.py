@@ -5,15 +5,14 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .models import Product, Category, CartItem, Order  # Добавьте Order
+from .models import Product, Category, CartItem, Order  
 from .serializers import (
     ProductSerializer, 
     CategorySerializer, 
     CartItemSerializer, 
     CartItemDetailSerializer,
-    OrderSerializer  # Добавьте этот импорт
+    OrderSerializer  
 )
-
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -83,16 +82,19 @@ class CartItemViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=400)
 
 class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Получаем данные о товарах из запроса
+        items_data = self.request.data.get('items', [])
+        if items_data:
+            # Берем первый товар из списка
+            first_product_id = items_data[0].get('product')
+            first_product = Product.objects.get(id=first_product_id)
+            farmer = first_product.farmer  # Предполагается, что у модели Product есть поле farmer
+        else:
+            farmer = None  # Или можно выбросить ошибку, если товаров нет
 
-    @action(detail=False, methods=['delete'])
-    def clear(self, request):
-        CartItem.objects.filter(user=request.user).delete()
-        return Response(status=204)
+        # Сохраняем заказ с пользователем и фермером
+        serializer.save(user=self.request.user, farmer=farmer)

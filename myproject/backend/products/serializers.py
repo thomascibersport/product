@@ -17,10 +17,14 @@ class ProductSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    
+    farmer_name = serializers.SerializerMethodField()
+
+    def get_farmer_name(self, obj):
+        return f"{obj.farmer.first_name} {obj.farmer.last_name}"
+
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = '__all__'  
         read_only_fields = ('farmer', 'slug')
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -65,11 +69,11 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
-    
+    farmer = serializers.PrimaryKeyRelatedField(read_only=True)  # ID фермера
+    farmer_name = serializers.CharField(source='farmer.username', read_only=True)
     class Meta:
         model = Order
-        fields = ['id', 'delivery_type', 'payment_method', 'address', 
-                 'total_amount', 'created_at', 'items']
+        fields = ['id', 'user', 'farmer', 'farmer_name', 'delivery_type', 'payment_method', 'address', 'total_amount', 'created_at', 'items']
         read_only_fields = ['user', 'created_at', 'total_amount']
 
     def validate_items(self, value):

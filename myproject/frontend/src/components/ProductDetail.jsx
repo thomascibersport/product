@@ -55,11 +55,9 @@ const ProductDetail = () => {
       </div>
     );
 
-  // Рассчитываем общую стоимость: цена * количество
   const totalCost = (Number(displayProduct.price) * quantity).toFixed(2);
 
   const handleAddToCart = async () => {
-    // Проверяем, чтобы количество не превышало доступное на складе
     if (quantity > displayProduct.quantity) {
       setCartMessage({
         type: "error",
@@ -146,7 +144,9 @@ const ProductDetail = () => {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-white text-lg font-medium">Просмотр</span>
+                  <span className="text-white text-lg font-medium">
+                    Просмотр
+                  </span>
                 </div>
               </div>
             </div>
@@ -157,10 +157,13 @@ const ProductDetail = () => {
                 <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
                   {displayProduct.description}
                 </p>
-
+                <p className="text-gray-600 dark:text-gray-400">
+                  Продавец: {displayProduct.farmer_name}
+                </p>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    Цена за 1 {displayProduct.unit || "ед."}: {displayProduct.price} руб.
+                    Цена за 1 {displayProduct.unit || "ед."}:{" "}
+                    {displayProduct.price} руб.
                   </p>
                   <p className="text-gray-600 dark:text-gray-400 mt-2">
                     Категория: {displayProduct.category}
@@ -178,7 +181,7 @@ const ProductDetail = () => {
                   >
                     −
                   </button>
-                  <span className="w-16 h-10 bg-white dark:bg-gray-800  border-gray-200 dark:border-gray-700 flex items-center justify-center font-medium dark:text-gray-200">
+                  <span className="w-16 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex items-center justify-center font-medium dark:text-gray-200">
                     {quantity}
                   </span>
                   <button
@@ -202,9 +205,25 @@ const ProductDetail = () => {
               >
                 {isAddingToCart ? (
                   <div className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin h-6 w-6 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Добавление...
                   </div>
@@ -214,11 +233,13 @@ const ProductDetail = () => {
               </button>
 
               {cartMessage && (
-                <div className={`p-4 rounded-xl ${
-                  cartMessage.type === "success" 
-                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                    : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                }`}>
+                <div
+                  className={`p-4 rounded-xl ${
+                    cartMessage.type === "success"
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                  }`}
+                >
                   {cartMessage.text}
                 </div>
               )}

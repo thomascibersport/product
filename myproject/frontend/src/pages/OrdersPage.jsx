@@ -11,7 +11,9 @@ const OrdersPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
+  };
   useEffect(() => {
     const fetchOrders = async () => {
       const token = Cookies.get("token");
@@ -35,9 +37,9 @@ const OrdersPage = () => {
     fetchOrders();
   }, [navigate]);
 
-  const formatDate = (dateString) => {
-    return moment(dateString).format("LLL");
-  };
+  // const formatDate = (dateString) => {
+  //   return moment(dateString).format("LLL");
+  // };
 
   if (loading)
     return (
@@ -91,6 +93,9 @@ const OrdersPage = () => {
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400">
                       {formatDate(order.created_at)}
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Продавец: {order.farmer_name}
                     </p>
                   </div>
                   <div className="space-y-2 mt-4 md:mt-0">
