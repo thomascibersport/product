@@ -64,7 +64,11 @@ class Order(models.Model):
         ('card', 'Картой'),
         ('cash', 'Наличные')
     ))
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    total_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)]  # Запрещаем нулевые суммы
+    )
     address = models.TextField(null=True, blank=True)
 
     def __str__(self):

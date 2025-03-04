@@ -148,60 +148,59 @@ const CartPage = () => {
   };
 
   const handleCreateOrder = async () => {
+    if (cartItems.length === 0) {
+      alert("Корзина пуста!");
+      return;
+    }
     const token = Cookies.get("token");
     if (!token) {
       navigate("/login");
       return;
     }
-
-    if (deliveryType === "delivery" && !deliveryAddress) {
-      alert("Пожалуйста, укажите адрес доставки");
-      return;
-    }
-
-    if (paymentType === "card") {
-      if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
-        alert("Пожалуйста, введите данные карты");
-        setShowCardModal(true);
-        return;
-      }
-
-      if (!validateCardDetails()) return;
-    }
-
-    const orderData = {
-      items: cartItems.map((item) => ({
-        product: item.product.id,
-        quantity: item.quantity,
-        price: item.product.price,
-      })),
-      delivery_type: deliveryType,
-      payment_method: paymentType,
-      total_amount: calculateTotal(),
-      address: deliveryType === "delivery" ? deliveryAddress : null,
-    };
-
+  
     try {
-      await axios.post("http://localhost:8000/api/orders/", orderData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      await axios.delete("http://localhost:8000/api/cart/clear/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCartItems([]);
-      setShowCardModal(false);
-      alert("Заказ успешно оформлен!");
-      navigate("/orders");
-    } catch (error) {
-      if (error.response?.data?.detail) {
-        alert(error.response.data.detail);
-      } else {
-        console.error("Ошибка оформления заказа:", error);
-        alert("Произошла ошибка при оформлении заказа");
+      const orderData = {
+        delivery_type: deliveryType,
+        payment_method: paymentType,
+        address: deliveryType === "delivery" ? deliveryAddress : null,
+        items: cartItems.map(item => ({
+          product: item.product.id,  // Только ID продукта
+          quantity: item.quantity
+        }))
+      };
+  
+      const response = await axios.post(
+        "http://localhost:8000/api/orders/",
+        orderData,
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+  
+      if (response.status === 201) {
+        await axios.delete("http://localhost:8000/api/cart/clear/", {
+          headers: { 
+            Authorization: `Bearer ${token}` 
+          }
+        });
+        setCartItems([]);
+        alert("Заказ успешно оформлен!");
+        navigate("/orders");
       }
+    } catch (error) {
+      let errorMessage = "Ошибка оформления заказа";
+      if (error.response) {
+        // Обработка ошибок валидации Django
+        if (error.response.data.items) {
+          errorMessage = error.response.data.items.join('\n');
+        } else if (error.response.data.non_field_errors) {
+          errorMessage = error.response.data.non_field_errors.join('\n');
+        } else {
+          errorMessage = error.response.data.detail || errorMessage;
+        }
+      }
+      alert(errorMessage);
+      console.error("Детали ошибки:", error.response?.data);
     }
   };
-
   const handlePaymentTypeChange = (e) => {
     setPaymentType(e.target.value);
     setShowCardModal(e.target.value === "card");

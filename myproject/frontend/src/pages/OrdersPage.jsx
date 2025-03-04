@@ -19,12 +19,11 @@ const OrdersPage = () => {
         navigate("/login");
         return;
       }
-      
+
       try {
-        const response = await axios.get(
-          "http://localhost:8000/api/orders/",
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const response = await axios.get("http://localhost:8000/api/orders/", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setOrders(response.data);
       } catch (err) {
         setError(err.message);
@@ -32,7 +31,7 @@ const OrdersPage = () => {
         setLoading(false);
       }
     };
-    
+
     fetchOrders();
   }, [navigate]);
 
@@ -57,7 +56,7 @@ const OrdersPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           📦 История заказов
@@ -71,7 +70,7 @@ const OrdersPage = () => {
                 У вас пока нет заказов
               </p>
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate("/")}
                 className="mt-6 px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all"
               >
                 Вернуться к покупкам
@@ -80,7 +79,7 @@ const OrdersPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map(order => (
+            {orders.map((order) => (
               <div
                 key={order.id}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 transition-transform hover:scale-[1.005]"
@@ -96,10 +95,14 @@ const OrdersPage = () => {
                   </div>
                   <div className="space-y-2 mt-4 md:mt-0">
                     <span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full text-sm">
-                      {order.delivery_type === 'delivery' ? 'Доставка' : 'Самовывоз'}
+                      {order.delivery_type === "delivery"
+                        ? "Доставка"
+                        : "Самовывоз"}
                     </span>
                     <span className="inline-block px-3 py-1 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-full text-sm ml-2">
-                      {order.payment_method === 'card' ? 'Оплата картой' : 'Наличные'}
+                      {order.payment_method === "card"
+                        ? "Оплата картой"
+                        : "Наличные"}
                     </span>
                   </div>
                 </div>
@@ -117,22 +120,29 @@ const OrdersPage = () => {
                     Товары:
                   </h3>
                   <div className="space-y-4">
-                    {order.items.map(item => (
+                    {order.items.map((item) => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                       >
-                        <div>
-                          <p className="text-gray-800 dark:text-gray-200">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
                             {item.product.name}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {item.quantity} x {item.price} ₽
-                          </p>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Цена: {item.price} ₽
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Количество: {item.quantity}
+                              </p>
+                            </div>
+                            <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 ml-4">
+                              {(item.quantity * item.price).toFixed(2)} ₽
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-gray-800 dark:text-gray-200">
-                          {(item.quantity * item.price).toFixed(2)} ₽
-                        </p>
                       </div>
                     ))}
                   </div>
