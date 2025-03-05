@@ -77,9 +77,6 @@ function Header() {
             <Link to="/orders" className="hover:text-gray-300">
               Мои заказы
             </Link>
-            <Link to="/add-product" className="hover:text-gray-300">
-              Добавить продукт
-            </Link>
             <Link to="/cart" className="hover:text-gray-300">
               Корзина
             </Link>

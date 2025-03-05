@@ -1,16 +1,21 @@
 from rest_framework import serializers
 from .models import Product, Category, CartItem, Order, OrderItem
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.db.models import F
 
-# Добавим ProductShortSerializer в начало
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
+
 class ProductShortSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id', 'name', 'price']
 
 class ProductSerializer(serializers.ModelSerializer):
-    category = serializers.StringRelatedField(read_only=True)
+    category = CategorySerializer(read_only=True)
     is_owner = serializers.SerializerMethodField()
     editable = serializers.SerializerMethodField()
     category_id = serializers.PrimaryKeyRelatedField(
@@ -27,20 +32,19 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_is_owner(self, obj):
         request = self.context.get('request')
         return request and request.user == obj.farmer
+    
     def get_editable(self, obj):
         request = self.context.get('request')
         return request and request.user == obj.farmer
 
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'description', 'price', 'quantity', 
+            'unit', 'category', 'category_id', 'image', 
+            'farmer_name', 'created_at', 'is_owner', 'editable'
+        ]
         read_only_fields = ('farmer', 'slug', 'editable')
-        extra_fields = ['is_owner']
-
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = '__all__'
 
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -69,7 +73,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ['product', 'quantity', 'price']
         extra_kwargs = {
-            'price': {'required': False}  # Цена устанавливается автоматически
+            'price': {'required': False}
         }
     
     def to_representation(self, instance):
@@ -79,11 +83,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
-    farmer = serializers.PrimaryKeyRelatedField(read_only=True)  # ID фермера
+    farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.CharField(source='farmer.username', read_only=True)
+    
     class Meta:
         model = Order
-        fields = ['id', 'user', 'farmer', 'farmer_name', 'delivery_type', 'payment_method', 'address', 'total_amount', 'created_at', 'items']
+        fields = [
+            'id', 'user', 'farmer', 'farmer_name', 'delivery_type',
+            'payment_method', 'address', 'total_amount', 'created_at', 'items'
+        ]
         read_only_fields = ['user', 'created_at', 'total_amount']
 
     def validate_items(self, value):
@@ -92,36 +100,33 @@ class OrderSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        from django.db import transaction
+        items_data = validated_data.pop('items')
+        user = self.context['request'].user
+        
+        total = 0
+        products_to_update = []
+        
+        for item_data in items_data:
+            product = item_data['product']
+            quantity = item_data['quantity']
+            
+            if product.quantity < quantity:
+                raise ValidationError(
+                    f"Недостаточно товара '{product.name}'. Доступно: {product.quantity}"
+                )
+            
+            total += product.price * quantity
+            products_to_update.append((product, quantity))
+        
+        validated_data.pop('user', None)
         
         with transaction.atomic():
-            items_data = validated_data.pop('items')
-            user = self.context['request'].user
-            
-            total = 0
-            products_to_update = []
-            
-            for item_data in items_data:
-                product = item_data['product']
-                quantity = item_data['quantity']
-                
-                if product.quantity < quantity:
-                    raise ValidationError(
-                        f"Недостаточно товара '{product.name}'. Доступно: {product.quantity}"
-                    )
-                
-                total += product.price * quantity
-                products_to_update.append((product, quantity))
-            
-            validated_data.pop('user', None)
-            
             order = Order.objects.create(
                 user=user,
                 total_amount=total,
                 **validated_data
             )
             
-            # Исправленные отступы:
             order_items = []
             for product, quantity in products_to_update:
                 order_items.append(OrderItem(
@@ -131,9 +136,9 @@ class OrderSerializer(serializers.ModelSerializer):
                     price=product.price
                 ))
                 
-                product.quantity -= quantity  # Отступ должен быть как в цикле for
-                product.save()                # Этот отступ тоже
+                product.quantity -= quantity
+                product.save()
             
             OrderItem.objects.bulk_create(order_items)
-            
-            return order
+        
+        return order

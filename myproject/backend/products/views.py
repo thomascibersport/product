@@ -43,7 +43,10 @@ class ProductDetail(generics.RetrieveDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
-
+    def get_permissions(self):
+        if self.request.method == 'DELETE':
+            return [permissions.IsAuthenticated()]
+        return []
     def delete(self, request, *args, **kwargs):
         product = self.get_object()
         if product.farmer != request.user:
@@ -123,4 +126,4 @@ class MyProductsList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Product.objects.filter(farmer=self.request.user)
+        return Product.objects.filter(farmer=self.request.user).select_related('category')
