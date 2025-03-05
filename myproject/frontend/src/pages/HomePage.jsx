@@ -11,12 +11,11 @@ const HomePage = () => {
 
   useEffect(() => {
     const token = Cookies.get("token");
+    // Если токена нет, заголовки не передаются
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+
     axios
-      .get("http://localhost:8000/api/products/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      .get("http://localhost:8000/api/products/", config)
       .then((response) => {
         setProducts(response.data);
         setLoading(false);
@@ -93,7 +92,7 @@ const HomePage = () => {
                 </div>
 
                 <div className="mt-4 flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-
+                  {/* Можно добавить дополнительные детали */}
                 </div>
               </Link>
             ))}
@@ -104,4 +103,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage; 
+export default HomePage;

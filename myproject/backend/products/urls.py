@@ -26,5 +26,5 @@ urlpatterns = [
         'get': 'list',
         'post': 'create'
     }), name='orders'),
-    path('cart/clear/', OrderViewSet.as_view({'delete': 'clear'}), name='clear-cart'),
+    path('cart/clear/', CartItemViewSet.as_view({'delete': 'clear'}), name='clear-cart'),
 ]

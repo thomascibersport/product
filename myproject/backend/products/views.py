@@ -13,6 +13,8 @@ from .serializers import (
     CartItemDetailSerializer,
     OrderSerializer  
 )
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -24,7 +26,7 @@ class ProductCreate(generics.CreateAPIView):
 class ProductList(generics.ListAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]  # Или настройте по вашим требованиям
+    permission_classes = [AllowAny]  # Или настройте по вашим требованиям
 
 
 class CategoryList(generics.ListAPIView):
@@ -34,7 +36,7 @@ class CategoryList(generics.ListAPIView):
 class ProductDetail(generics.RetrieveAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
 
 class CartItemViewSet(viewsets.ModelViewSet):
@@ -80,7 +82,10 @@ class CartItemViewSet(viewsets.ModelViewSet):
             return super().list(request, *args, **kwargs)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
-
+    def clear(self, request):
+            cart_items = CartItem.objects.filter(user=request.user)
+            cart_items.delete()
+            return Response({'status': 'cart cleared'})
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer

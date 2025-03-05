@@ -69,24 +69,20 @@ function Header() {
           Продукты
         </Link>
 
-        <nav className="flex space-x-4">
-          <Link to="/orders" className="hover:text-gray-300">
-            Мои заказы
-          </Link>
-          <div>
+        {/* Отображаем навигацию только для авторизованных пользователей */}
+        {isAuthenticated && (
+          <nav className="flex space-x-4">
+            <Link to="/orders" className="hover:text-gray-300">
+              Мои заказы
+            </Link>
             <Link to="/add-product" className="hover:text-gray-300">
               Добавить продукт
             </Link>
-          </div>
-          <div>
-            <Link
-              to="/cart"
-              className="flex items-center text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-            >
+            <Link to="/cart" className="hover:text-gray-300">
               Корзина
             </Link>
-          </div>
-        </nav>
+          </nav>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -114,7 +110,9 @@ function Header() {
               {isDarkMode ? "Светлая тема" : "Тёмная тема"}
             </DropdownMenuItem>
             {isAuthenticated ? (
-              <DropdownMenuItem onClick={handleLogout}>Выйти</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                Выйти
+              </DropdownMenuItem>
             ) : (
               <DropdownMenuItem onClick={() => navigate("/login")}>
                 Войти

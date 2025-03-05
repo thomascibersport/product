@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
+import { getUser } from "../api/auth";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -13,16 +14,15 @@ const ProductDetail = () => {
   const [prevProduct, setPrevProduct] = useState(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
+  // Получаем данные продукта. Если токена нет, заголовок не передаётся.
   useEffect(() => {
     const token = Cookies.get("token");
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
     axios
-      .get(`http://localhost:8000/api/products/${id}/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      .get(`http://localhost:8000/api/products/${id}/`, config)
       .then((response) => {
         setProduct(response.data);
         setPrevProduct(response.data);
@@ -33,6 +33,18 @@ const ProductDetail = () => {
         setLoading(false);
       });
   }, [id]);
+
+  // Получаем данные текущего пользователя, если токен имеется.
+  useEffect(() => {
+    const token = Cookies.get("token");
+    if (token) {
+      getUser(token)
+        .then((response) => setCurrentUser(response.data))
+        .catch((error) =>
+          console.error("Ошибка загрузки данных пользователя:", error)
+        );
+    }
+  }, []);
 
   if (loading)
     return (
@@ -56,12 +68,23 @@ const ProductDetail = () => {
     );
 
   const totalCost = (Number(displayProduct.price) * quantity).toFixed(2);
+  // Если пользователь авторизован и является владельцем (продавцом) данного продукта
+  const isOwner =
+    currentUser && displayProduct.farmer_name === currentUser.username;
 
   const handleAddToCart = async () => {
+    if (isOwner) {
+      setCartMessage({
+        type: "error",
+        text: "Вы не можете добавить свой продукт в корзину.",
+      });
+      return;
+    }
+
     if (quantity > displayProduct.quantity) {
       setCartMessage({
         type: "error",
-        text: `Нельзя добавить больше ${displayProduct.quantity} единиц товара. Доступно: ${displayProduct.quantity}.`,
+        text: `Нельзя добавить больше ${displayProduct.quantity} единиц товара.`,
       });
       return;
     }
@@ -99,7 +122,6 @@ const ProductDetail = () => {
     } catch (error) {
       console.error("Ошибка при добавлении в корзину:", error);
       let errorMessage = "Произошла ошибка при добавлении в корзину";
-
       if (error.response) {
         if (error.response.data?.product) {
           errorMessage = error.response.data.product;
@@ -107,11 +129,7 @@ const ProductDetail = () => {
           errorMessage = error.response.data.quantity;
         }
       }
-
-      setCartMessage({
-        type: "error",
-        text: errorMessage,
-      });
+      setCartMessage({ type: "error", text: errorMessage });
     } finally {
       setIsAddingToCart(false);
     }
@@ -143,11 +161,7 @@ const ProductDetail = () => {
                     </span>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-white text-lg font-medium">
-                    Просмотр
-                  </span>
-                </div>
+
               </div>
             </div>
 
@@ -191,46 +205,49 @@ const ProductDetail = () => {
                     +
                   </button>
                 </div>
-
                 <div className="text-xl font-bold text-gray-800 dark:text-white p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
                   Общая стоимость: {totalCost} руб.
                 </div>
               </div>
 
-              {/* Кнопка добавления в корзину */}
-              <button
-                onClick={handleAddToCart}
-                disabled={isAddingToCart}
-                className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAddingToCart ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Добавление...
-                  </div>
-                ) : (
-                  "Добавить в корзину 🛒"
-                )}
-              </button>
+              {/* Кнопка добавления в корзину выводится только если пользователь авторизован */}
+              {Cookies.get("token") && (
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isAddingToCart || isOwner}
+                  className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isOwner
+                    ? "Нельзя добавить свой продукт"
+                    : isAddingToCart ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <svg
+                            className="animate-spin h-6 w-6 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Добавление...
+                        </div>
+                      ) : (
+                        "Добавить в корзину 🛒"
+                      )}
+                </button>
+              )}
 
               {cartMessage && (
                 <div
