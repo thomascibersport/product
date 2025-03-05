@@ -13,6 +13,7 @@ import { getToken, logout as clearToken } from "../utils/auth";
 function Header() {
   const [username, setUsername] = useState("Гость");
   const [avatar, setAvatar] = useState("/media/default-avatar.png");
+  const [user, setUser] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
     return savedTheme ? savedTheme === "dark" : false;
@@ -34,6 +35,7 @@ function Header() {
           return;
         }
         const response = await getUser(token);
+        setUser(response.data); // Сохраняем данные пользователя
         setUsername(response.data.username);
         setAvatar(response.data.avatar || "/media/default-avatar.png");
         setIsAuthenticated(true);
@@ -81,6 +83,10 @@ function Header() {
             <Link to="/cart" className="hover:text-gray-300">
               Корзина
             </Link>
+            {/* Исправленная строка: используем isAuthenticated вместо user */}
+            <Link to="/my-products" className="hover:text-gray-300">
+              Мои объявления
+            </Link>
           </nav>
         )}
 
@@ -110,9 +116,7 @@ function Header() {
               {isDarkMode ? "Светлая тема" : "Тёмная тема"}
             </DropdownMenuItem>
             {isAuthenticated ? (
-              <DropdownMenuItem onClick={handleLogout}>
-                Выйти
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>Выйти</DropdownMenuItem>
             ) : (
               <DropdownMenuItem onClick={() => navigate("/login")}>
                 Войти

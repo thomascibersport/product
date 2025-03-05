@@ -5,7 +5,8 @@ from .views import (
     CategoryList, 
     ProductDetail, 
     CartItemViewSet,
-    OrderViewSet  
+    OrderViewSet,
+    MyProductsList,
 )
 
 urlpatterns = [
@@ -27,4 +28,6 @@ urlpatterns = [
         'post': 'create'
     }), name='orders'),
     path('cart/clear/', CartItemViewSet.as_view({'delete': 'clear'}), name='clear-cart'),
+    # Исправленная строка:
+    path('my-products/', MyProductsList.as_view(), name='my-products'),
 ]

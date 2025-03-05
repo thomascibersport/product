@@ -8,6 +8,7 @@ import AddProductForm from "./components/AddProductForm"; // Новый импо
 import ProductDetail from "../src/components/ProductDetail";
 import CartPage from "../src/components/CartPage";
 import OrdersPage from "../src/pages/OrdersPage";
+import MyProductsPage from "../src/components/MyProductsPage";
 const App = () => {
   return (
     <Router>
@@ -21,6 +22,7 @@ const App = () => {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/my-products" element={<MyProductsPage />} />
       </Routes>
     </Router>
   );

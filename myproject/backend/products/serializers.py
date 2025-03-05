@@ -11,6 +11,8 @@ class ProductShortSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField(read_only=True)
+    is_owner = serializers.SerializerMethodField()
+    editable = serializers.SerializerMethodField()
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), 
         source='category', 
@@ -22,10 +24,18 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_farmer_name(self, obj):
         return f"{obj.farmer.first_name} {obj.farmer.last_name}"
 
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        return request and request.user == obj.farmer
+    def get_editable(self, obj):
+        request = self.context.get('request')
+        return request and request.user == obj.farmer
+
     class Meta:
         model = Product
-        fields = '__all__'  
-        read_only_fields = ('farmer', 'slug')
+        fields = '__all__'
+        read_only_fields = ('farmer', 'slug', 'editable')
+        extra_fields = ['is_owner']
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:

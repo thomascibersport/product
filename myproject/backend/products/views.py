@@ -18,25 +18,40 @@ from rest_framework.permissions import AllowAny
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]  # Только авторизованные пользователи
+    permission_classes = [IsAuthenticated]  
 
     def perform_create(self, serializer):
-        # Связываем продукт с текущим пользователем (фермером)
+ 
         serializer.save(farmer=self.request.user)
 class ProductList(generics.ListAPIView):
-    queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [AllowAny]  # Или настройте по вашим требованиям
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = Product.objects.all()
+        # Если пользователь авторизован - исключаем его товары
+        if self.request.user.is_authenticated:
+            queryset = queryset.exclude(farmer=self.request.user)
+        return queryset
 
 
 class CategoryList(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-class ProductDetail(generics.RetrieveAPIView):
+class ProductDetail(generics.RetrieveDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        product = self.get_object()
+        if product.farmer != request.user:
+            return Response(
+                {"error": "Вы не можете удалить этот товар"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().delete(request, *args, **kwargs)
 
 
 class CartItemViewSet(viewsets.ModelViewSet):
@@ -103,3 +118,9 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Сохраняем заказ с пользователем и фермером
         serializer.save(user=self.request.user, farmer=farmer)
+class MyProductsList(generics.ListAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Product.objects.filter(farmer=self.request.user)
