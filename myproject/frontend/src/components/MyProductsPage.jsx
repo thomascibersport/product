@@ -401,7 +401,6 @@ const MyProductsPage = () => {
         setError(err.message);
         setLoading(false);
       });
-
     axios
       .get("http://localhost:8000/api/categories/")
       .then((response) => {
@@ -425,63 +424,107 @@ const MyProductsPage = () => {
         return;
       }
 
-      const data = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          data.append(key, value);
-        }
-      });
-
       try {
-        await axios.post("http://localhost:8000/api/products/create/", data, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        // 1. Создаем FormData и явно преобразуем типы
+        const data = new FormData();
 
-        const response = await axios.get(
+        // Обязательные поля
+        data.append("name", formData.name);
+        data.append("description", formData.description);
+
+        // Числовые поля с валидацией
+        data.append("category_id", Number(formData.category)); // Ключ должен совпадать с сериализатором
+        data.append("price", parseFloat(formData.price));
+        data.append("quantity", parseInt(formData.quantity, 10));
+
+        // Текстовые поля
+        data.append("unit", formData.unit);
+
+        // Изображение (если есть)
+        if (formData.image) {
+          data.append("image", formData.image);
+        }
+
+        // 2. Отправка запроса
+        const response = await axios.post(
+          "http://localhost:8000/api/products/create/",
+          data,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        // 3. Обновление списка продуктов после успешного создания
+        const productsResponse = await axios.get(
           "http://localhost:8000/api/my-products/",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        setProducts(response.data);
+        setProducts(productsResponse.data);
 
+        // 4. Сброс формы и состояния
         setFormState({
           name: "",
           description: "",
           price: "",
           quantity: "",
-          unit: "",
-          category: categories[0]?.id || "",
+          unit: measurementUnits[0],
+          category: categories[0]?.id.toString() || "",
           image: null,
         });
         setIsModalOpen(false);
         setSuccessMessage("Продукт успешно добавлен!");
       } catch (error) {
-        if (error.response?.data?.errors) {
-          setFormErrors(error.response.data.errors);
+        // 5. Обработка ошибок
+        if (error.response) {
+          // Ошибки валидации Django
+          if (error.response.data?.errors) {
+            setFormErrors(
+              Object.fromEntries(
+                Object.entries(error.response.data.errors).map(
+                  ([key, value]) => [
+                    key,
+                    Array.isArray(value) ? value.join(" ") : value,
+                  ]
+                )
+              )
+            );
+          } else {
+            setFormError(
+              error.response.data?.detail ||
+                "Произошла ошибка при создании продукта"
+            );
+          }
+        } else if (error.request) {
+          setFormError("Нет ответа от сервера");
         } else {
-          setFormError(
-            error.response?.data?.detail || "Ошибка при создании продукта"
-          );
+          setFormError("Ошибка настройки запроса");
         }
       }
     },
-    [categories]
+    [categories, measurementUnits]
   );
 
   const handleDelete = useCallback((productId) => {
     const token = Cookies.get("token");
     axios
       .delete(`http://localhost:8000/api/products/${productId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-CSRFToken": Cookies.get("csrftoken"), // Для Django CSRF
+        },
       })
       .then(() => {
         setProducts((prev) => prev.filter((p) => p.id !== productId));
       })
-      .catch(console.error);
+      .catch((error) => {
+        console.error("Ошибка удаления:", error);
+        alert(error.response?.data?.error || "Ошибка при удалении товара");
+      });
   }, []);
 
   return (

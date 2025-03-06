@@ -1,3 +1,4 @@
+from rest_framework import status
 from django.shortcuts import render
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -15,13 +16,17 @@ from .serializers import (
 )
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
+
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]  
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
- 
+        # Добавлена проверка наличия категории в данных
+        if 'category' not in serializer.validated_data:
+            raise ValidationError({'category': 'This field is required'})
+        
         serializer.save(farmer=self.request.user)
 class ProductList(generics.ListAPIView):
     serializer_class = ProductSerializer
@@ -42,19 +47,33 @@ class CategoryList(generics.ListAPIView):
 class ProductDetail(generics.RetrieveDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
-    def get_permissions(self):
-        if self.request.method == 'DELETE':
-            return [permissions.IsAuthenticated()]
-        return []
+    permission_classes = [AllowAny]
+
     def delete(self, request, *args, **kwargs):
-        product = self.get_object()
-        if product.farmer != request.user:
+        try:
+            # Проверка аутентификации
+            if not request.user.is_authenticated:
+                return Response(
+                    {"error": "Требуется авторизация"},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+
+            product = self.get_object()
+            
+            # Проверка прав владельца
+            if product.farmer != request.user:
+                return Response(
+                    {"error": "Вы не можете удалить этот товар"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+                
+            return super().delete(request, *args, **kwargs)
+            
+        except Exception as e:
             return Response(
-                {"error": "Вы не можете удалить этот товар"},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Внутренняя ошибка сервера"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        return super().delete(request, *args, **kwargs)
 
 
 class CartItemViewSet(viewsets.ModelViewSet):

@@ -157,29 +157,29 @@ const CartPage = () => {
       navigate("/login");
       return;
     }
-  
+
     try {
       const orderData = {
         delivery_type: deliveryType,
         payment_method: paymentType,
         address: deliveryType === "delivery" ? deliveryAddress : null,
-        items: cartItems.map(item => ({
-          product: item.product.id,  // Только ID продукта
-          quantity: item.quantity
-        }))
+        items: cartItems.map((item) => ({
+          product: item.product.id, // Только ID продукта
+          quantity: item.quantity,
+        })),
       };
-  
+
       const response = await axios.post(
         "http://localhost:8000/api/orders/",
         orderData,
-        { headers: { Authorization: `Bearer ${token}` }}
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-  
+
       if (response.status === 201) {
         await axios.delete("http://localhost:8000/api/cart/clear/", {
-          headers: { 
-            Authorization: `Bearer ${token}` 
-          }
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
         setCartItems([]);
         alert("Заказ успешно оформлен!");
@@ -190,9 +190,9 @@ const CartPage = () => {
       if (error.response) {
         // Обработка ошибок валидации Django
         if (error.response.data.items) {
-          errorMessage = error.response.data.items.join('\n');
+          errorMessage = error.response.data.items.join("\n");
         } else if (error.response.data.non_field_errors) {
-          errorMessage = error.response.data.non_field_errors.join('\n');
+          errorMessage = error.response.data.non_field_errors.join("\n");
         } else {
           errorMessage = error.response.data.detail || errorMessage;
         }
@@ -266,7 +266,7 @@ const CartPage = () => {
                   </h2>
                   <div className="flex items-center space-x-4">
                     <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 rounded-full text-sm">
-                      {item.product.category}
+                      {item.product.category?.name || "Без категории"}
                     </span>
                     <p className="text-lg font-semibold text-green-600 dark:text-green-400">
                       {item.product.price} ₽

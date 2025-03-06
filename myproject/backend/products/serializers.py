@@ -22,10 +22,20 @@ class ProductSerializer(serializers.ModelSerializer):
         queryset=Category.objects.all(), 
         source='category', 
         write_only=True,
-        required=False
+        required=True  # Исправлено
     )
     farmer_name = serializers.SerializerMethodField()
 
+    class Meta:  # Добавлен правильный отступ
+        model = Product
+        fields = [
+            'id', 'name', 'description', 'price', 'quantity', 
+            'unit', 'category', 'category_id', 'image', 
+            'farmer_name', 'created_at', 'is_owner', 'editable'
+        ]
+        read_only_fields = ('farmer', 'slug', 'editable')
+
+    # Методы с правильными отступами
     def get_farmer_name(self, obj):
         return f"{obj.farmer.first_name} {obj.farmer.last_name}"
 
@@ -36,15 +46,6 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_editable(self, obj):
         request = self.context.get('request')
         return request and request.user == obj.farmer
-
-    class Meta:
-        model = Product
-        fields = [
-            'id', 'name', 'description', 'price', 'quantity', 
-            'unit', 'category', 'category_id', 'image', 
-            'farmer_name', 'created_at', 'is_owner', 'editable'
-        ]
-        read_only_fields = ('farmer', 'slug', 'editable')
 
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
