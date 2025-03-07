@@ -86,12 +86,13 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.CharField(source='farmer.username', read_only=True)
-    
+    status = serializers.CharField(read_only=True) 
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
     class Meta:
         model = Order
         fields = [
             'id', 'user', 'farmer', 'farmer_name', 'delivery_type',
-            'payment_method', 'address', 'total_amount', 'created_at', 'items'
+            'payment_method', 'address', 'total_amount', 'created_at', 'items', 'status', 'status_display'
         ]
         read_only_fields = ['user', 'created_at', 'total_amount']
 

@@ -24,17 +24,19 @@ class OrderItemInline(admin.TabularInline):
     fields = ('product', 'quantity', 'price')
     readonly_fields = ('product', 'quantity', 'price')
 
+
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'created_at', 'delivery_type', 
+    list_display = ('id', 'user', 'status', 'created_at', 'delivery_type', 
                    'payment_method', 'total_amount', 'address')
-    list_filter = ('delivery_type', 'payment_method', 'created_at')
+    list_filter = ('status', 'delivery_type', 'payment_method', 'created_at')
+    list_editable = ('status',)  
     search_fields = ('user__email', 'address', 'id')
     readonly_fields = ('created_at', 'total_amount')
     inlines = [OrderItemInline]
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('user', 'created_at', 'total_amount')
+            'fields': ('user', 'status', 'created_at', 'total_amount')
         }),
         ('Детали заказа', {
             'fields': ('delivery_type', 'payment_method', 'address')

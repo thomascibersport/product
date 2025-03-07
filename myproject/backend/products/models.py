@@ -54,6 +54,19 @@ class CartItem(models.Model):
         super().save(*args, **kwargs)
 
 class Order(models.Model):
+    STATUS_CHOICES = [
+        ('processing', 'В обработке'),
+        ('shipped', 'Отправлен'),
+        ('in_transit', 'В пути'),
+        ('delivered', 'Доставлен'),
+        ('canceled', 'Отменен'),
+    ]
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='processing'
+    )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='farmer_orders')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -68,7 +81,7 @@ class Order(models.Model):
     total_amount = models.DecimalField(
         max_digits=10, 
         decimal_places=2,
-        validators=[MinValueValidator(0.01)]  # Запрещаем нулевые суммы
+        validators=[MinValueValidator(0.01)]
     )
     address = models.TextField(null=True, blank=True)
 

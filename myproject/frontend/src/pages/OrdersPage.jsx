@@ -5,15 +5,60 @@ import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/ru";
+import "../index.css";
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
+
+const waveAnimation = `
+  @keyframes wave-group {
+    0% {
+      transform: scale(0.3);
+      opacity: 1;
+    }
+    90% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .animate-wave-1 {
+    animation: wave-group 2s ease-out infinite;
+  }
+  .animate-wave-2 {
+    animation: wave-group 2s ease-out infinite 0.3s;
+  }
+  .animate-wave-3 {
+    animation: wave-group 2s ease-out infinite 0.6s;
+  }
+`;
+
+
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "processing":
+        return "border-yellow-500";
+      case "shipped":
+        return "border-blue-500";
+      case "in_transit":
+        return "border-purple-500";
+      case "delivered":
+        return "border-green-500";
+      case "canceled":
+        return "border-red-500";
+      default:
+        return "border-gray-500";
+    }
   };
+
   useEffect(() => {
     const fetchOrders = async () => {
       const token = Cookies.get("token");
@@ -37,9 +82,39 @@ const OrdersPage = () => {
     fetchOrders();
   }, [navigate]);
 
-  // const formatDate = (dateString) => {
-  //   return moment(dateString).format("LLL");
-  // };
+  const formatDate = (dateString) => {
+    return moment(dateString).format("DD.MM.YYYY HH:mm");
+  };
+
+  const cancelOrder = async (orderId) => {
+    const token = Cookies.get("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!window.confirm("Вы уверены, что хотите отменить заказ?")) return;
+
+    try {
+      await axios.post(
+        `http://localhost:8000/api/orders/${orderId}/cancel/`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedOrders = orders.map((order) => {
+        if (order.id === orderId) {
+          return { ...order, status: "canceled" };
+        }
+        return order;
+      });
+      setOrders(updatedOrders);
+      alert("Заказ успешно отменен");
+    } catch (error) {
+      alert("Ошибка при отмене заказа");
+      console.error("Ошибка отмены заказа:", error);
+    }
+  };
 
   if (loading)
     return (
@@ -57,6 +132,7 @@ const OrdersPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      <style>{waveAnimation}</style>
       <Header />
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -84,8 +160,14 @@ const OrdersPage = () => {
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 transition-transform hover:scale-[1.005]"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-transform hover:scale-[1.005] relative overflow-hidden"
               >
+                <div
+                  className={`absolute top-0 left-0 w-1 h-full ${getStatusColor(
+                    order.status
+                  ).replace("border", "bg")}`}
+                />
+
                 <div className="flex flex-col md:flex-row justify-between mb-4">
                   <div className="space-y-2">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">
@@ -98,17 +180,53 @@ const OrdersPage = () => {
                       Продавец: {order.farmer_name}
                     </p>
                   </div>
+
                   <div className="space-y-2 mt-4 md:mt-0">
-                    <span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full text-sm">
-                      {order.delivery_type === "delivery"
-                        ? "Доставка"
-                        : "Самовывоз"}
-                    </span>
-                    <span className="inline-block px-3 py-1 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-full text-sm ml-2">
-                      {order.payment_method === "card"
-                        ? "Оплата картой"
-                        : "Наличные"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                        {order.delivery_type === "delivery"
+                          ? "🚚 Доставка"
+                          : "🏪 Самовывоз"}
+                      </span>
+
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                        {order.payment_method === "card"
+                          ? "💳 Карта"
+                          : "💵 Наличные"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="relative w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
+                        <div
+                          className={`absolute w-full h-full rounded-full border-2 ${getStatusColor(
+                            order.status
+                          )} animate-wave-1 opacity-0`}
+                        />
+                        <div
+                          className={`absolute w-full h-full rounded-full border-2 ${getStatusColor(
+                            order.status
+                          )} animate-wave-2 opacity-0`}
+                        />
+                        <div
+                          className={`absolute w-full h-full rounded-full border-2 ${getStatusColor(
+                            order.status
+                          )} animate-wave-3 opacity-0`}
+                        />
+                      </div>
+
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        {
+                          {
+                            processing: "В обработке",
+                            shipped: "Отправлен",
+                            in_transit: "В пути",
+                            delivered: "Доставлен",
+                            canceled: "Отменен",
+                          }[order.status]
+                        }
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -162,6 +280,16 @@ const OrdersPage = () => {
                       {order.total_amount} ₽
                     </span>
                   </div>
+                  {order.status === "processing" && (
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => cancelOrder(order.id)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Отменить заказ
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

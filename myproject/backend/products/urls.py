@@ -30,4 +30,5 @@ urlpatterns = [
     path('cart/clear/', CartItemViewSet.as_view({'delete': 'clear'}), name='clear-cart'),
     # Исправленная строка:
     path('my-products/', MyProductsList.as_view(), name='my-products'),
+    path('orders/<int:pk>/cancel/', OrderViewSet.as_view({'post': 'cancel'}), name='order-cancel'),
 ]

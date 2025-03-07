@@ -162,9 +162,10 @@ const CartPage = () => {
       const orderData = {
         delivery_type: deliveryType,
         payment_method: paymentType,
-        address: deliveryType === "delivery" ? deliveryAddress : null,
+        address: deliveryType === "delivery" ? deliveryAddress : "Самовывоз",
+        status: "processing", // Автоматический статус
         items: cartItems.map((item) => ({
-          product: item.product.id, // Только ID продукта
+          product: item.product.id,
           quantity: item.quantity,
         })),
       };
@@ -210,7 +211,13 @@ const CartPage = () => {
     setShowCardModal(false);
     setPaymentType("cash");
   };
-
+  useEffect(() => {
+    if (deliveryType === "pickup") {
+      setDeliveryAddress("Самовывоз");
+    } else {
+      setDeliveryAddress("");
+    }
+  }, [deliveryType]);
   if (loading)
     return (
       <div className="text-center py-10 text-gray-600">Загрузка корзины...</div>
@@ -389,7 +396,7 @@ const CartPage = () => {
                     </label>
                   </div>
 
-                  {deliveryType === "delivery" && (
+                  {deliveryType === "delivery" ? (
                     <div className="mt-4">
                       <input
                         type="text"
@@ -397,6 +404,15 @@ const CartPage = () => {
                         value={deliveryAddress}
                         onChange={(e) => setDeliveryAddress(e.target.value)}
                         className="w-full p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all dark:text-gray-200"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <input
+                        type="text"
+                        value="Самовывоз"
+                        readOnly
+                        className="w-full p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 cursor-not-allowed transition-all dark:text-gray-200"
                       />
                     </div>
                   )}

@@ -14,3 +14,27 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+@keyframes wave-group {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  31%, 100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+.animate-wave-1 {
+  animation: wave-group 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.animate-wave-2 {
+  animation: wave-group 4s cubic-bezier(0.4, 0, 0.2, 1) infinite 0.33s;
+}
+.animate-wave-3 {
+  animation: wave-group 4s cubic-bezier(0.4, 0, 0.2, 1) infinite 1,32s;
+}

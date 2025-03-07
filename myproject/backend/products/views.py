@@ -126,19 +126,32 @@ class CartItemViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
 
+    # Правильный отступ для декоратора @action
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        order = self.get_object()
+        if order.user != request.user:
+            return Response(
+                {'error': 'Вы не можете отменить этот заказ'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        order.status = 'canceled'
+        order.save()
+        return Response({'status': 'Заказ отменен'})
+
+    # Метод должен быть на том же уровне, что и cancel
     def perform_create(self, serializer):
-        # Получаем данные о товарах из запроса
         items_data = self.request.data.get('items', [])
         if items_data:
-            # Берем первый товар из списка
             first_product_id = items_data[0].get('product')
             first_product = Product.objects.get(id=first_product_id)
-            farmer = first_product.farmer  # Предполагается, что у модели Product есть поле farmer
+            farmer = first_product.farmer
         else:
-            farmer = None  # Или можно выбросить ошибку, если товаров нет
+            farmer = None
 
-        # Сохраняем заказ с пользователем и фермером
         serializer.save(user=self.request.user, farmer=farmer)
 class MyProductsList(generics.ListAPIView):
     serializer_class = ProductSerializer
