@@ -25,15 +25,17 @@ class OrderItemInline(admin.TabularInline):
     readonly_fields = ('product', 'quantity', 'price')
 
 
+@admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'status', 'created_at', 'delivery_type', 
-                   'payment_method', 'total_amount', 'address')
-    list_filter = ('status', 'delivery_type', 'payment_method', 'created_at')
-    list_editable = ('status',)  
-    search_fields = ('user__email', 'address', 'id')
-    readonly_fields = ('created_at', 'total_amount')
+    list_display = (
+        'id', 'user', 'farmer', 'delivery_type', 'payment_method',
+        'get_address', 'pickup_address', 'total_amount', 'created_at', 'status'
+    )
+    list_filter = ('status', 'delivery_type', 'payment_method')
+    search_fields = ('user__email', 'farmer__email')
     inlines = [OrderItemInline]
-    
+    readonly_fields = ('created_at', 'total_amount')
+
     fieldsets = (
         ('Основная информация', {
             'fields': ('user', 'status', 'created_at', 'total_amount')
@@ -43,7 +45,10 @@ class OrderAdmin(admin.ModelAdmin):
         }),
     )
 
+    def get_address(self, obj):
+        return obj.delivery_address if obj.delivery_type == 'delivery' else obj.pickup_address
+
+    get_address.short_description = 'Адрес'
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(CartItem, CartItemAdmin)
-admin.site.register(Order, OrderAdmin)

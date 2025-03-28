@@ -14,7 +14,6 @@ const cardTypeImages = {
 
 const detectCardType = (number) => {
   const cleaned = number.replace(/\D/g, "");
-
   const patterns = {
     visa: /^4[0-9]{12}(?:[0-9]{3})?$/,
     mastercard:
@@ -25,7 +24,6 @@ const detectCardType = (number) => {
   for (const [type, pattern] of Object.entries(patterns)) {
     if (cleaned.match(pattern)) return type;
   }
-
   if (/^4/.test(cleaned)) return "visa";
   if (/^(5[1-5]|2)/.test(cleaned)) return "mastercard";
   if (/^3[47]/.test(cleaned)) return "amex";
@@ -48,6 +46,16 @@ const CartPage = () => {
   const [cardHolder, setCardHolder] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
+  const deliveryItems = cartItems.filter(
+    (item) => item.product.delivery_available
+  );
+  const pickupItems = cartItems.filter(
+    (item) => !item.product.delivery_available
+  );
+  // Проверяем, есть ли в корзине хотя бы один товар с доставкой
+  const hasDeliveryAvailable = cartItems.some(
+    (item) => item.product.delivery_available
+  );
 
   useEffect(() => {
     const fetchCartItems = async () => {
@@ -70,6 +78,13 @@ const CartPage = () => {
     };
     fetchCartItems();
   }, [navigate]);
+
+  // Если выбран тип доставки "delivery", но в корзине нет товаров с доставкой, переключаем на самовывоз
+  useEffect(() => {
+    if (deliveryType === "delivery" && !hasDeliveryAvailable) {
+      setDeliveryType("pickup");
+    }
+  }, [hasDeliveryAvailable, deliveryType]);
 
   useEffect(() => {
     if (paymentType === "card") {
@@ -133,20 +148,18 @@ const CartPage = () => {
       alert("Неверный формат срока действия карты");
       return false;
     }
-
     if (year < currentYear || (year === currentYear && month < currentMonth)) {
       alert("Срок действия карты истёк");
       return false;
     }
-
     if (cvv.length !== (cardType === "amex" ? 4 : 3)) {
       alert("Неверный CVV код");
       return false;
     }
-
     return true;
   };
 
+  // Разделяем товары на две группы: с доставкой и без доставки
   const handleCreateOrder = async () => {
     if (cartItems.length === 0) {
       alert("Корзина пуста!");
@@ -159,37 +172,53 @@ const CartPage = () => {
     }
 
     try {
-      const orderData = {
-        delivery_type: deliveryType,
-        payment_method: paymentType,
-        address: deliveryType === "delivery" ? deliveryAddress : "Самовывоз",
-        status: "processing", // Автоматический статус
-        items: cartItems.map((item) => ({
-          product: item.product.id,
-          quantity: item.quantity,
-        })),
-      };
+      const orders = [];
 
-      const response = await axios.post(
-        "http://localhost:8000/api/orders/",
-        orderData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      // Заказ для товаров с доставкой
+      if (deliveryItems.length > 0) {
+        orders.push({
+          delivery_type: "delivery",
+          payment_method: paymentType,
+          delivery_address: deliveryAddress,
+          items: deliveryItems.map((item) => ({
+            product: item.product.id,
+            quantity: item.quantity,
+          })),
+        });
+      }
+
+      // Заказ для товаров без доставки
+      if (pickupItems.length > 0) {
+        orders.push({
+          delivery_type: "pickup",
+          payment_method: paymentType,
+          pickup_address: "ул. Примерная, 123 (Пункт выдачи)",
+          items: pickupItems.map((item) => ({
+            product: item.product.id,
+            quantity: item.quantity,
+          })),
+        });
+      }
+
+      // Создаем все заказы
+      await axios.all(
+        orders.map((order) =>
+          axios.post("http://localhost:8000/api/orders/", order, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        )
       );
 
-      if (response.status === 201) {
-        await axios.delete("http://localhost:8000/api/cart/clear/", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setCartItems([]);
-        alert("Заказ успешно оформлен!");
-        navigate("/orders");
-      }
+      // Очистка корзины
+      await axios.delete("http://localhost:8000/api/cart/clear/", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCartItems([]);
+      alert("Заказ успешно оформлен!");
+      navigate("/orders");
     } catch (error) {
       let errorMessage = "Ошибка оформления заказа";
       if (error.response) {
-        // Обработка ошибок валидации Django
         if (error.response.data.items) {
           errorMessage = error.response.data.items.join("\n");
         } else if (error.response.data.non_field_errors) {
@@ -202,6 +231,7 @@ const CartPage = () => {
       console.error("Детали ошибки:", error.response?.data);
     }
   };
+
   const handlePaymentTypeChange = (e) => {
     setPaymentType(e.target.value);
     setShowCardModal(e.target.value === "card");
@@ -211,6 +241,7 @@ const CartPage = () => {
     setShowCardModal(false);
     setPaymentType("cash");
   };
+
   useEffect(() => {
     if (deliveryType === "pickup") {
       setDeliveryAddress("Самовывоз");
@@ -218,6 +249,7 @@ const CartPage = () => {
       setDeliveryAddress("");
     }
   }, [deliveryType]);
+
   if (loading)
     return (
       <div className="text-center py-10 text-gray-600">Загрузка корзины...</div>
@@ -269,8 +301,12 @@ const CartPage = () => {
 
                 <div className="flex-1 space-y-4">
                   <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                    {item.product.name}
+                    {item.product.name}{" "}
+                    {item.product.delivery_available === false && (
+                      <span className="text-sm text-red-500">нет доставки</span>
+                    )}
                   </h2>
+
                   <div className="flex items-center space-x-4">
                     <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 rounded-full text-sm">
                       {item.product.category?.name || "Без категории"}
@@ -288,7 +324,7 @@ const CartPage = () => {
                     >
                       −
                     </button>
-                    <span className="w-16 h-10 bg-white dark:bg-gray-800  border-gray-200 dark:border-gray-700 flex items-center justify-center font-medium dark:text-gray-200">
+                    <span className="w-16 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex items-center justify-center font-medium dark:text-gray-200">
                       {item.quantity}
                     </span>
                     <button
@@ -417,7 +453,31 @@ const CartPage = () => {
                     </div>
                   )}
                 </div>
+                {deliveryItems.length > 0 && (
+                  <div className="mt-4">
+                    <input
+                      type="text"
+                      placeholder="Введите адрес доставки..."
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      className="w-full p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all dark:text-gray-200"
+                      required
+                    />
+                  </div>
+                )}
 
+                {pickupItems.length > 0 && (
+                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                      Товары без доставки будут доступны для самовывоза по
+                      адресу:
+                      <br />
+                      <span className="font-medium">
+                        ул. Примерная, 123 (Пункт выдачи)
+                      </span>
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                     Способ оплаты
@@ -517,7 +577,6 @@ const CartPage = () => {
                 </div>
 
                 <div className="space-y-5">
-                  {/* Исправленное поле номера карты */}
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-14 flex items-center">
                       {cardType !== "default" && (
@@ -538,7 +597,6 @@ const CartPage = () => {
                     />
                   </div>
 
-                  {/* Остальные поля с исправленным цветом текста */}
                   <input
                     type="text"
                     placeholder="Имя владельца"
@@ -566,7 +624,6 @@ const CartPage = () => {
                 </div>
               </div>
 
-              {/* Кнопки остаются без изменений */}
               <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex gap-4">
                   <button

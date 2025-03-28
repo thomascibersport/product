@@ -13,7 +13,7 @@ const OrdersPage = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-const waveAnimation = `
+  const waveAnimation = `
   @keyframes wave-group {
     0% {
       transform: scale(0.3);
@@ -39,8 +39,6 @@ const waveAnimation = `
     animation: wave-group 2s ease-out infinite 0.6s;
   }
 `;
-
-
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -230,14 +228,17 @@ const waveAnimation = `
                   </div>
                 </div>
 
-                {order.address && (
-                  <div className="mb-4">
+                <div className="mb-4">
+                  {order.delivery_type === "delivery" ? (
                     <p className="text-gray-600 dark:text-gray-400">
-                      Адрес: {order.address}
+                      Адрес доставки: {order.delivery_address}
                     </p>
-                  </div>
-                )}
-
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Пункт самовывоза: {order.pickup_address}
+                    </p>
+                  )}
+                </div>
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
                     Товары:
@@ -250,7 +251,7 @@ const waveAnimation = `
                       >
                         <div className="flex-1">
                           <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
-                            {item.product.name}
+                            {item.product?.name || "Товар удален"}
                           </p>
                           <div className="flex justify-between items-center">
                             <div>

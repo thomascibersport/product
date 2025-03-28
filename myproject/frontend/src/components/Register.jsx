@@ -131,179 +131,182 @@ function Register() {
 
   return (
     <>
-      {/* Интегрированная шапка */}
       <Header />
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center pt-16">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-6 text-center">
-            Регистрация
-          </h1>
-          {error && (
-            <div className="bg-red-100 text-red-800 px-4 py-2 rounded mb-4 text-sm">
-              {error}
-            </div>
-          )}
-          <form onSubmit={handleSubmit}>
-            {/* Фамилия */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Фамилия
-              </label>
-              <input
-                type="text"
-                name="lastName"
-                value={userData.lastName}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-            </div>
-            {/* Имя */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Имя
-              </label>
-              <input
-                type="text"
-                name="firstName"
-                value={userData.firstName}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-            </div>
-            {/* Отчество */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Отчество
-              </label>
-              <input
-                type="text"
-                name="middleName"
-                value={userData.middleName}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-            </div>
-            {/* Логин */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Логин
-              </label>
-              <input
-                type="text"
-                name="login"
-                value={userData.login}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-            </div>
-            {/* Email */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={userData.email}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-            </div>
-            {/* Телефон */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Телефон
-              </label>
-              <InputMask
-                mask="+7 (999) 999-99-99"
-                name="phone"
-                value={userData.phone}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              />
-            </div>
-            {/* Пароль */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Пароль
-              </label>
-              <div className="relative">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 pt-15">
+        <div className="relative w-full max-w-xl">
+          <div className="absolute -inset-2 bg-blue-100 dark:bg-blue-900/20 blur-lg opacity-30 rounded-3xl"></div>
+          
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl relative transition-all duration-300 hover:shadow-2xl">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+              📝 Регистрация
+            </h1>
+            
+            {error && (
+              <div className="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-300 px-4 py-3 rounded-xl mb-6 text-sm flex items-center">
+                <span className="mr-2">⚠️</span>
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Фамилия */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Фамилия</label>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={userData.password}
+                  type="text"
+                  name="lastName"
+                  value={userData.lastName}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
+                  className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 px-3 py-2"
-                >
-                  {showPassword ? "Скрыть" : "Показать"}
-                </button>
               </div>
-            </div>
-            {/* Подтверждение пароля */}
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">
-                Подтверждение пароля
-              </label>
-              <div className="relative">
+
+              {/* Имя */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Имя</label>
                 <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  value={userData.confirmPassword}
+                  type="text"
+                  name="firstName"
+                  value={userData.firstName}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
+                  className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all"
                 />
+              </div>
+
+              {/* Отчество */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Отчество</label>
+                <input
+                  type="text"
+                  name="middleName"
+                  value={userData.middleName}
+                  onChange={handleInputChange}
+                  className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all"
+                />
+              </div>
+
+              {/* Логин */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Логин</label>
+                <input
+                  type="text"
+                  name="login"
+                  value={userData.login}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={userData.email}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all"
+                />
+              </div>
+
+              {/* Телефон */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Телефон</label>
+                <InputMask
+                  mask="+7 (999) 999-99-99"
+                  name="phone"
+                  value={userData.phone}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all"
+                />
+              </div>
+
+              {/* Пароль */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Пароль</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={userData.password}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all pr-16"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                  >
+                    {showPassword ? "Скрыть" : "Показать"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Подтверждение пароля */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">Подтверждение</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={userData.confirmPassword}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-5 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 bg-transparent transition-all pr-16"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-3.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                  >
+                    {showConfirmPassword ? "Скрыть" : "Показать"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Чекбокс согласия */}
+              <div className="md:col-span-2">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    name="agreeToTerms"
+                    checked={userData.agreeToTerms}
+                    onChange={(e) => setUserData({ ...userData, agreeToTerms: e.target.checked })}
+                    className="w-5 h-5 text-blue-600 border-2 border-gray-300 rounded-md focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-blue-600"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300 text-sm">
+                    Согласен на обработку персональных данных
+                  </span>
+                </label>
+              </div>
+
+              {/* Кнопка отправки */}
+              <div className="md:col-span-2">
                 <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 px-3 py-2"
+                  type="submit"
+                  className="w-full bg-gradient-to-br from-blue-600 to-blue-500 text-white py-4 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-600 transition-all duration-300 shadow-lg hover:shadow-blue-200/50 dark:hover:shadow-blue-900/30"
                 >
-                  {showConfirmPassword ? "Скрыть" : "Показать"}
+                  Зарегистрироваться
                 </button>
               </div>
-            </div>
-            {/* Чекбокс согласия */}
-            <div className="mb-6">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="agreeToTerms"
-                  checked={userData.agreeToTerms}
-                  onChange={(e) =>
-                    setUserData({ ...userData, agreeToTerms: e.target.checked })
-                  }
-                  className="mr-2"
-                />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Согласен на обработку данных
-                </span>
-              </label>
-            </div>
-            {/* Кнопка отправки */}
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
-            >
-              Зарегистрироваться
-            </button>
-          </form>
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-400">
-            Уже есть аккаунт?{" "}
-            <a href="/login" className="text-blue-600 hover:underline">
-              Войти
-            </a>
-          </p>
+            </form>
+
+            <p className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
+              Уже есть аккаунт?{" "}
+              <a 
+                href="/login" 
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium underline-offset-4 hover:underline transition-all"
+              >
+                Войти
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </>

@@ -18,6 +18,7 @@ class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     is_owner = serializers.SerializerMethodField()
     editable = serializers.SerializerMethodField()
+    delivery_available = serializers.BooleanField()
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), 
         source='category', 
@@ -31,7 +32,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'price', 'quantity', 
             'unit', 'category', 'category_id', 'image', 
-            'farmer_name', 'created_at', 'is_owner', 'editable'
+            'farmer_name', 'created_at', 'is_owner', 'editable','delivery_available'
         ]
         read_only_fields = ('farmer', 'slug', 'editable')
 
@@ -88,18 +89,15 @@ class OrderSerializer(serializers.ModelSerializer):
     farmer_name = serializers.CharField(source='farmer.username', read_only=True)
     status = serializers.CharField(read_only=True) 
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
     class Meta:
         model = Order
         fields = [
             'id', 'user', 'farmer', 'farmer_name', 'delivery_type',
-            'payment_method', 'address', 'total_amount', 'created_at', 'items', 'status', 'status_display'
+            'payment_method', 'delivery_address', 'pickup_address',
+            'total_amount', 'created_at', 'items', 'status', 'status_display'
         ]
         read_only_fields = ['user', 'created_at', 'total_amount']
-
-    def validate_items(self, value):
-        if not value:
-            raise serializers.ValidationError("Заказ должен содержать хотя бы один товар")
-        return value
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
@@ -120,14 +118,10 @@ class OrderSerializer(serializers.ModelSerializer):
             total += product.price * quantity
             products_to_update.append((product, quantity))
         
-        validated_data.pop('user', None)
+        validated_data['total_amount'] = total
         
         with transaction.atomic():
-            order = Order.objects.create(
-                user=user,
-                total_amount=total,
-                **validated_data
-            )
+            order = Order.objects.create(**validated_data)
             
             order_items = []
             for product, quantity in products_to_update:

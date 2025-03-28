@@ -158,4 +158,4 @@ class MyProductsList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Product.objects.filter(farmer=self.request.user).select_related('category')
+        return Product.objects.filter(farmer=self.request.user).select_related('category') 

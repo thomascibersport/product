@@ -20,8 +20,6 @@ const AddProductModal = React.memo(
     const [localState, setLocalState] = useState(formState);
     const [imagePreview, setImagePreview] = useState(null);
     const modalRef = useRef(null);
-
-    // Все хуки вызываются в начале
     useEffect(() => {
       const handleClickOutside = (event) => {
         if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -65,7 +63,6 @@ const AddProductModal = React.memo(
       [localState, onSubmit]
     );
 
-    // Условный рендеринг после ВСЕХ хуков
     if (!isOpen) return null;
 
     return (
@@ -335,6 +332,23 @@ const AddProductModal = React.memo(
                         accept="image/*"
                       />
                     </label>
+                    <div className="flex items-center gap-2 mt-4">
+                      <input
+                        type="checkbox"
+                        checked={localState.delivery_available}
+                        onChange={(e) =>
+                          handleChange("delivery_available", e.target.checked)
+                        }
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        id="deliveryCheckbox"
+                      />
+                      <label
+                        htmlFor="deliveryCheckbox"
+                        className="text-sm text-gray-800 dark:text-gray-200"
+                      >
+                        Доступна доставка
+                      </label>
+                    </div>
                   </div>
                   {formErrors.image && (
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400">
@@ -373,6 +387,9 @@ const MyProductsPage = () => {
     unit: "",
     category: "",
     image: null,
+    delivery_available: false,
+    seller_address: "",
+    delivery_days: 1,
   });
 
   const [categories, setCategories] = useState([]);
@@ -431,7 +448,7 @@ const MyProductsPage = () => {
         // Обязательные поля
         data.append("name", formData.name);
         data.append("description", formData.description);
-
+        data.append("delivery_available", formData.delivery_available);
         // Числовые поля с валидацией
         data.append("category_id", Number(formData.category)); // Ключ должен совпадать с сериализатором
         data.append("price", parseFloat(formData.price));

@@ -147,7 +147,6 @@ const ProductDetail = () => {
           </h1>
 
           <div className="flex flex-col md:flex-row gap-8">
-            {/* Изображение продукта */}
             <div className="w-full md:w-1/2">
               <div className="relative group rounded-xl overflow-hidden shadow-lg border-4 border-blue-100 dark:border-blue-900/50">
                 {displayProduct.image ? (
@@ -165,8 +164,6 @@ const ProductDetail = () => {
                 )}
               </div>
             </div>
-
-            {/* Детали продукта */}
             <div className="w-full md:w-1/2 space-y-6">
               <div className="space-y-4">
                 <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -188,8 +185,6 @@ const ProductDetail = () => {
                   </p>
                 </div>
               </div>
-
-              {/* Выбор количества */}
               <div className="space-y-4">
                 <div className="flex items-center">
                   <button
@@ -214,7 +209,6 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Кнопка добавления в корзину выводится только если пользователь авторизован */}
               {Cookies.get("token") && (
                 <button
                   onClick={handleAddToCart}

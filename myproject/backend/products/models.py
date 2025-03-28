@@ -17,10 +17,9 @@ class Product(models.Model):
     image = models.ImageField(upload_to='products/', blank=True, null=True)
     farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    delivery_available = models.BooleanField(default=False, verbose_name="Доступна доставка")
     def __str__(self):
         return self.name
-
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.name)
@@ -29,9 +28,8 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 class Category(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    slug = models.SlugField(max_length=200, unique=True, null=True, blank=True)  # Temporarily allow NULL
+    slug = models.SlugField(max_length=200, unique=True, null=True, blank=True) 
     created_at = models.DateTimeField(auto_now_add=True)
-
     def __str__(self):
         return self.name
     def save(self, *args, **kwargs):
@@ -83,7 +81,8 @@ class Order(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(0.01)]
     )
-    address = models.TextField(null=True, blank=True)
+    delivery_address = models.TextField(null=True, blank=True)
+    pickup_address = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"Order #{self.id} - {self.user.email}"

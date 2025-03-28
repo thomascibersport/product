@@ -14,11 +14,7 @@ import "react-image-crop/dist/ReactCrop.css";
 import "../App.css";
 function EditProfilePage() {
   const navigate = useNavigate();
-
-  /*** Состояния для работы с аватаркой ***/
-  // Изображение для обрезки (выбранное пользователем)
   const [src, setSrc] = useState(null);
-  // Настройки обрезки (начальное значение)
   const [crop, setCrop] = useState({
     unit: "px",
     x: 0,
@@ -27,43 +23,26 @@ function EditProfilePage() {
     height: 200,
     aspect: 1,
   });
-
-  // Завершённые настройки обрезки
   const [completedCrop, setCompletedCrop] = useState(null);
-  // Ссылка на изображение в DOM для получения его размеров
   const imageRef = useRef(null);
-  // Blob с обрезанным изображением
   const [croppedBlob, setCroppedBlob] = useState(null);
-  // Превью обрезанного изображения (локальное)
   const [croppedPreview, setCroppedPreview] = useState("/default-avatar.png");
-  // Флаг загрузки аватарки
   const [uploading, setUploading] = useState(false);
-  // Превью аватара, полученного с сервера (при загрузке профиля)
   const [preview, setPreview] = useState("/default-avatar.png");
-
-  /*** Состояния для данных профиля ***/
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [phone, setPhone] = useState("");
-
-  /*** Состояния для смены пароля ***/
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
-
-  /*** Другие состояния ***/
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  /*** Функции работы с аватаркой ***/
-
-  // Обработка выбора файла (устанавливаем src для ReactCrop)
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const reader = new FileReader();
@@ -73,38 +52,28 @@ function EditProfilePage() {
       reader.readAsDataURL(e.target.files[0]);
     }
   };
-
-  // Функция для получения обрезанного изображения в виде Blob
   const getCroppedImg = (image, crop, fileName) => {
-    // Задаём фиксированные размеры итогового изображения:
     const desiredWidth = 200;
     const desiredHeight = 200;
-
-    // Создаём canvas с фиксированными размерами:
     const canvas = document.createElement("canvas");
     canvas.width = desiredWidth;
     canvas.height = desiredHeight;
     const ctx = canvas.getContext("2d");
-
-    // Вычисляем масштаб по оси X и Y относительно исходных размеров
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
-
-    // Рисуем выбранную область на canvas, масштабируя её до нужного размера
     ctx.drawImage(
       image,
-      crop.x * scaleX, // Начальная точка по X в исходном изображении
-      crop.y * scaleY, // Начальная точка по Y в исходном изображении
-      crop.width * scaleX, // Ширина обрезанной области в исходном изображении
-      crop.height * scaleY, // Высота обрезанной области в исходном изображении
-      0, // Начальная точка по X на canvas
-      0, // Начальная точка по Y на canvas
-      desiredWidth, // Итоговая ширина
-      desiredHeight // Итоговая высота
+      crop.x * scaleX, 
+      crop.y * scaleY, 
+      crop.width * scaleX,
+      crop.height * scaleY, 
+      0, 
+      0, 
+      desiredWidth, 
+      desiredHeight 
     );
-
     return new Promise((resolve, reject) => {
-      // Получаем Blob с итоговым изображением в формате JPEG (можно поменять на image/png, если нужно)
+
       canvas.toBlob((blob) => {
         if (!blob) {
           return reject(new Error("Не удалось создать изображение."));
@@ -115,7 +84,7 @@ function EditProfilePage() {
     });
   };
 
-  // Подтверждение обрезки: получение Blob и установка локального превью
+
   const handleCropConfirm = async () => {
     if (!imageRef.current || !completedCrop) {
       alert("Сначала выберите и обрежьте изображение!");
