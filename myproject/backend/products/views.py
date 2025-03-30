@@ -144,18 +144,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     # Метод должен быть на том же уровне, что и cancel
     def perform_create(self, serializer):
-        items_data = self.request.data.get('items', [])
-        if items_data:
-            first_product_id = items_data[0].get('product')
-            first_product = Product.objects.get(id=first_product_id)
-            farmer = first_product.farmer
-        else:
-            farmer = None
-
-        serializer.save(user=self.request.user, farmer=farmer)
+        serializer.save()
 class MyProductsList(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Product.objects.filter(farmer=self.request.user).select_related('category') 
+        return Product.objects.filter(farmer=self.request.user).select_related('category')  

@@ -27,24 +27,31 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = (
-        'id', 'user', 'farmer', 'delivery_type', 'payment_method',
-        'get_address', 'pickup_address', 'total_amount', 'created_at', 'status'
-    )
+    list_display = ['id', 'user', 'created_at', 'status', 'get_farmers']
     list_filter = ('status', 'delivery_type', 'payment_method')
-    search_fields = ('user__email', 'farmer__email')
+    search_fields = ('user__email', 'delivery_address', 'pickup_address')
     inlines = [OrderItemInline]
-    readonly_fields = ('created_at', 'total_amount')
-
     fieldsets = (
-        ('Основная информация', {
-            'fields': ('user', 'status', 'created_at', 'total_amount')
+        (None, {
+            'fields': (
+                'user', 
+                'status', 
+                'total_amount',
+                ('delivery_type', 'payment_method'),  # Добавлена запятая здесь
+            )
         }),
-        ('Детали заказа', {
-            'fields': ('delivery_type', 'payment_method', 'address')
+        ('Адреса', {
+            'fields': (
+                'delivery_address', 
+                'pickup_address'
+            ),
+            'classes': ('collapse',)
         }),
     )
-
+    def get_farmers(self, obj):
+        farmers = set(item.product.farmer for item in obj.items.all() if item.product)
+        return ", ".join([f"{f.first_name} {f.last_name}" for f in farmers])
+    get_farmers.short_description = 'Продавцы'
     def get_address(self, obj):
         return obj.delivery_address if obj.delivery_type == 'delivery' else obj.pickup_address
 

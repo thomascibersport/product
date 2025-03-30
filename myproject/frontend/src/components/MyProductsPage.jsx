@@ -349,6 +349,14 @@ const AddProductModal = React.memo(
                         Доступна доставка
                       </label>
                     </div>
+                    {!localState.delivery_available && (
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          При отключенной доставке покупатели будут забирать
+                          товар по указанному адресу
+                        </p>
+                      </div>
+                    )}
                   </div>
                   {formErrors.image && (
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400">
@@ -356,7 +364,29 @@ const AddProductModal = React.memo(
                     </p>
                   )}
                 </div>
-
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+                    Адрес продавца
+                  </label>
+                  <input
+                    type="text"
+                    value={localState.seller_address}
+                    onChange={(e) =>
+                      handleChange("seller_address", e.target.value)
+                    }
+                    placeholder="Введите адрес пункта выдачи"
+                    className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                      formErrors.seller_address
+                        ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                        : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                    } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
+                  />
+                  {formErrors.seller_address && (
+                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                      ⚠️ {formErrors.seller_address}
+                    </p>
+                  )}
+                </div>
                 <button
                   type="submit"
                   className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
@@ -434,7 +464,6 @@ const MyProductsPage = () => {
       setFormErrors({});
       setFormError("");
       setSuccessMessage("");
-
       const token = Cookies.get("token");
       if (!token) {
         setFormError("Требуется авторизация");
@@ -444,7 +473,7 @@ const MyProductsPage = () => {
       try {
         // 1. Создаем FormData и явно преобразуем типы
         const data = new FormData();
-
+        data.append("seller_address", formData.seller_address);
         // Обязательные поля
         data.append("name", formData.name);
         data.append("description", formData.description);

@@ -161,53 +161,41 @@ const CartPage = () => {
 
   // Разделяем товары на две группы: с доставкой и без доставки
   const handleCreateOrder = async () => {
-    if (cartItems.length === 0) {
-      alert("Корзина пуста!");
-      return;
-    }
-    const token = Cookies.get("token");
+    const token = Cookies.get("token"); // Добавить эту строку
     if (!token) {
       navigate("/login");
       return;
     }
 
+    if (cartItems.length === 0) {
+      alert("Корзина пуста!");
+      return;
+    }
+
+    // Проверка адреса для доставки
+    if (deliveryType === "delivery" && !deliveryAddress.trim()) {
+      alert("Пожалуйста, укажите адрес доставки");
+      return;
+    }
+
     try {
-      const orders = [];
+      const orderData = {
+        delivery_type: deliveryType,
+        payment_method: paymentType,
+        delivery_address: deliveryType === "delivery" ? deliveryAddress : null,
+        pickup_address:
+          deliveryType === "pickup"
+            ? "ул. Примерная, 123 (Пункт выдачи)"
+            : null,
+        items: cartItems.map((item) => ({
+          product: item.product.id,
+          quantity: item.quantity,
+        })),
+      };
 
-      // Заказ для товаров с доставкой
-      if (deliveryItems.length > 0) {
-        orders.push({
-          delivery_type: "delivery",
-          payment_method: paymentType,
-          delivery_address: deliveryAddress,
-          items: deliveryItems.map((item) => ({
-            product: item.product.id,
-            quantity: item.quantity,
-          })),
-        });
-      }
-
-      // Заказ для товаров без доставки
-      if (pickupItems.length > 0) {
-        orders.push({
-          delivery_type: "pickup",
-          payment_method: paymentType,
-          pickup_address: "ул. Примерная, 123 (Пункт выдачи)",
-          items: pickupItems.map((item) => ({
-            product: item.product.id,
-            quantity: item.quantity,
-          })),
-        });
-      }
-
-      // Создаем все заказы
-      await axios.all(
-        orders.map((order) =>
-          axios.post("http://localhost:8000/api/orders/", order, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        )
-      );
+      await axios.post("http://localhost:8000/api/orders/", orderData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       // Очистка корзины
       await axios.delete("http://localhost:8000/api/cart/clear/", {
@@ -306,6 +294,9 @@ const CartPage = () => {
                       <span className="text-sm text-red-500">нет доставки</span>
                     )}
                   </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Продавец: {item.product.farmer_name}
+                  </p>
 
                   <div className="flex items-center space-x-4">
                     <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 rounded-full text-sm">
@@ -453,18 +444,6 @@ const CartPage = () => {
                     </div>
                   )}
                 </div>
-                {deliveryItems.length > 0 && (
-                  <div className="mt-4">
-                    <input
-                      type="text"
-                      placeholder="Введите адрес доставки..."
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      className="w-full p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-transparent focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all dark:text-gray-200"
-                      required
-                    />
-                  </div>
-                )}
 
                 {pickupItems.length > 0 && (
                   <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">

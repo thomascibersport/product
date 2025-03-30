@@ -66,7 +66,6 @@ class Order(models.Model):
         default='processing'
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='farmer_orders')
     created_at = models.DateTimeField(auto_now_add=True)
     delivery_type = models.CharField(max_length=20, choices=(
         ('delivery', 'Доставка'),
