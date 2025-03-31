@@ -20,6 +20,8 @@ const AddProductModal = React.memo(
     const [localState, setLocalState] = useState(formState);
     const [imagePreview, setImagePreview] = useState(null);
     const modalRef = useRef(null);
+
+    // Закрытие модального окна при клике вне его
     useEffect(() => {
       const handleClickOutside = (event) => {
         if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -36,14 +38,17 @@ const AddProductModal = React.memo(
       };
     }, [isOpen, onClose]);
 
+    // Синхронизация локального состояния с переданным formState
     useEffect(() => {
       setLocalState(formState);
     }, [formState]);
 
+    // Обработчик изменения полей
     const handleChange = useCallback((field, value) => {
       setLocalState((prev) => ({ ...prev, [field]: value }));
     }, []);
 
+    // Обработчик загрузки изображения
     const handleFileChange = useCallback(
       (e) => {
         const file = e.target.files[0];
@@ -55,6 +60,7 @@ const AddProductModal = React.memo(
       [handleChange]
     );
 
+    // Обработчик отправки формы
     const handleSubmitForm = useCallback(
       (e) => {
         e.preventDefault();
@@ -69,49 +75,53 @@ const AddProductModal = React.memo(
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
         <div
           ref={modalRef}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all">
-            <div className="p-8 space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                  📦 Добавить новый продукт
-                </h2>
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+          <div className="p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                📦 Добавить новый продукт
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Сообщение об успехе */}
+            {successMessage && (
+              <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl">
+                ✅ {successMessage}
               </div>
+            )}
 
-              {successMessage && (
-                <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl animate-fade-in">
-                  ✅ {successMessage}
-                </div>
-              )}
+            {/* Сообщение об ошибке */}
+            {formError && (
+              <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl">
+                ❌ {formError}
+              </div>
+            )}
 
-              {formError && (
-                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl animate-fade-in">
-                  ❌ {formError}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmitForm} className="space-y-6">
+            {/* Форма */}
+            <form onSubmit={handleSubmitForm} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Название продукта */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 dark:!text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-300 mb-1">
                     Название продукта
                   </label>
                   <input
@@ -121,251 +131,158 @@ const AddProductModal = React.memo(
                     placeholder="Введите название"
                     required
                     autoFocus
-                    className={`w-full px-4 py-3 rounded-lg border-2 text-gray-900 dark:text-gray-200 ${
+                    className={`w-full px-3 py-2 rounded-lg border-2 text-gray-900 dark:text-gray-200 ${
                       formErrors.name
-                        ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                        ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
                   />
                   {formErrors.name && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                       ⚠️ {formErrors.name}
                     </p>
                   )}
                 </div>
 
+                {/* Цена */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                    Описание
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    Цена за единицу
                   </label>
-                  <textarea
-                    value={localState.description}
-                    onChange={(e) =>
-                      handleChange("description", e.target.value)
-                    }
-                    placeholder="Детальное описание продукта"
-                    rows="3"
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={localState.price}
+                      onChange={(e) => {
+                        if (/^\d*\.?\d*$/.test(e.target.value))
+                          handleChange("price", e.target.value);
+                      }}
+                      placeholder="0.00"
+                      required
+                      className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                        formErrors.price
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-16`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      ₽ / {localState.unit || "ед."}
+                    </span>
+                  </div>
+                  {formErrors.price && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      ⚠️ {formErrors.price}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Описание */}
+              <div>
+                <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                  Описание
+                </label>
+                <textarea
+                  value={localState.description}
+                  onChange={(e) => handleChange("description", e.target.value)}
+                  placeholder="Детальное описание продукта"
+                  rows="2"
+                  required
+                  className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                    formErrors.description
+                      ? "border-red-500"
+                      : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                  } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
+                />
+                {formErrors.description && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    ⚠️ {formErrors.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Количество */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    Количество на складе
+                  </label>
+                  <input
+                    type="text"
+                    value={localState.quantity}
+                    onChange={(e) => {
+                      if (/^\d*$/.test(e.target.value))
+                        handleChange("quantity", e.target.value);
+                    }}
+                    placeholder="Введите количество"
                     required
-                    className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                      formErrors.description
-                        ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                    className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                      formErrors.quantity
+                        ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
                   />
-                  {formErrors.description && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                      ⚠️ {formErrors.description}
+                  {formErrors.quantity && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      ⚠️ {formErrors.quantity}
                     </p>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                      Цена за единицу
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={localState.price}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (/^\d*\.?\d*$/.test(value))
-                            handleChange("price", value);
-                        }}
-                        placeholder="0.00"
-                        required
-                        className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                          formErrors.price
-                            ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                            : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                        } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-24`}
-                      />
-                      <span className="absolute right-4 top-3.5 text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        <span>₽</span>
-                        <span className="text-gray-400">/</span>
-                        <span>{localState.unit || "ед."}</span>
-                      </span>
-                    </div>
-                    {formErrors.price && (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                        ⚠️ {formErrors.price}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                      Количество на складе
-                    </label>
-                    <input
-                      type="text"
-                      value={localState.quantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (/^\d*$/.test(value))
-                          handleChange("quantity", value);
-                      }}
-                      placeholder="Введите количество"
-                      required
-                      className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                        formErrors.quantity
-                          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
-                    />
-                    {formErrors.quantity && (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                        ⚠️ {formErrors.quantity}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                      Единица измерения
-                    </label>
-                    <select
-                      value={localState.unit}
-                      onChange={(e) => handleChange("unit", e.target.value)}
-                      required
-                      className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                        formErrors.unit
-                          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
-                    >
-                      <option
-                        value=""
-                        disabled
-                        className="dark:bg-gray-800 dark:text-gray-200"
-                      >
-                        Выберите единицу
-                      </option>
-                      {measurementUnits.map((unitOption, idx) => (
-                        <option
-                          key={idx}
-                          value={unitOption}
-                          className="dark:bg-gray-800 dark:text-gray-200"
-                        >
-                          {unitOption}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                      Категория
-                    </label>
-                    <select
-                      value={localState.category}
-                      onChange={(e) => handleChange("category", e.target.value)}
-                      required
-                      className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                        formErrors.category
-                          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
-                    >
-                      {categories.map((cat) => (
-                        <option
-                          key={cat.id}
-                          value={cat.id}
-                          className="dark:bg-gray-800 dark:text-gray-200"
-                        >
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
+                {/* Единица измерения */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
-                    Изображение продукта
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    Единица измерения
                   </label>
-                  <div className="flex items-center justify-center w-full">
-                    <label
-                      className={`flex flex-col w-full rounded-lg border-2 border-dashed ${
-                        formErrors.image
-                          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                          : "border-gray-200 dark:border-gray-700 hover:border-blue-500"
-                      } transition-all cursor-pointer`}
-                    >
-                      <div className="p-6 text-center">
-                        {imagePreview ? (
-                          <img
-                            src={imagePreview}
-                            alt="Preview"
-                            className="mx-auto h-48 object-cover rounded-lg"
-                          />
-                        ) : (
-                          <>
-                            <svg
-                              className="mx-auto h-12 w-12 text-gray-400"
-                              stroke="currentColor"
-                              fill="none"
-                              viewBox="0 0 48 48"
-                            >
-                              <path
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                              />
-                            </svg>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {localState.image
-                                ? localState.image.name
-                                : "Перетащите или выберите файл"}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept="image/*"
-                      />
-                    </label>
-                    <div className="flex items-center gap-2 mt-4">
-                      <input
-                        type="checkbox"
-                        checked={localState.delivery_available}
-                        onChange={(e) =>
-                          handleChange("delivery_available", e.target.checked)
-                        }
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                        id="deliveryCheckbox"
-                      />
-                      <label
-                        htmlFor="deliveryCheckbox"
-                        className="text-sm text-gray-800 dark:text-gray-200"
-                      >
-                        Доступна доставка
-                      </label>
-                    </div>
-                    {!localState.delivery_available && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          При отключенной доставке покупатели будут забирать
-                          товар по указанному адресу
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  {formErrors.image && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                      ⚠️ {formErrors.image}
-                    </p>
-                  )}
+                  <select
+                    value={localState.unit}
+                    onChange={(e) => handleChange("unit", e.target.value)}
+                    required
+                    className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                      formErrors.unit
+                        ? "border-red-500"
+                        : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                    } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
+                  >
+                    <option value="" disabled>
+                      Выберите единицу
+                    </option>
+                    {measurementUnits.map((unitOption, idx) => (
+                      <option key={idx} value={unitOption}>
+                        {unitOption}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Категория */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    Категория
+                  </label>
+                  <select
+                    value={localState.category}
+                    onChange={(e) => handleChange("category", e.target.value)}
+                    required
+                    className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                      formErrors.category
+                        ? "border-red-500"
+                        : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                    } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Адрес продавца */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Адрес продавца
                   </label>
                   <input
@@ -375,26 +292,111 @@ const AddProductModal = React.memo(
                       handleChange("seller_address", e.target.value)
                     }
                     placeholder="Введите адрес пункта выдачи"
-                    className={`w-full px-4 py-3 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                    className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
                       formErrors.seller_address
-                        ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                        ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
                   />
                   {formErrors.seller_address && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                       ⚠️ {formErrors.seller_address}
                     </p>
                   )}
                 </div>
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
+              </div>
+
+              {/* Изображение */}
+              <div>
+                <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                  Изображение продукта
+                </label>
+                <div className="flex items-center justify-center w-full">
+                  <label
+                    className={`flex flex-col w-full rounded-lg border-2 border-dashed ${
+                      formErrors.image
+                        ? "border-red-500"
+                        : "border-gray-200 dark:border-gray-700 hover:border-blue-500"
+                    } transition-all cursor-pointer`}
+                  >
+                    <div className="p-4 text-center">
+                      {imagePreview ? (
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="mx-auto h-32 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <>
+                          <svg
+                            className="mx-auto h-10 w-10 text-gray-400"
+                            stroke="currentColor"
+                            fill="none"
+                            viewBox="0 0 48 48"
+                          >
+                            <path
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                            />
+                          </svg>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {localState.image
+                              ? localState.image.name
+                              : "Перетащите или выберите файл"}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="image/*"
+                    />
+                  </label>
+                </div>
+                {formErrors.image && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    ⚠️ {formErrors.image}
+                  </p>
+                )}
+              </div>
+
+              {/* Доступна доставка */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={localState.delivery_available}
+                  onChange={(e) =>
+                    handleChange("delivery_available", e.target.checked)
+                  }
+                  className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 transition-all"
+                  id="deliveryCheckbox"
+                />
+                <label
+                  htmlFor="deliveryCheckbox"
+                  className="text-sm font-medium text-gray-800 dark:text-gray-200 cursor-pointer hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
                 >
-                  ➕ Добавить продукт
-                </button>
-              </form>
-            </div>
+                  Доступна доставка
+                </label>
+              </div>
+              {!localState.delivery_available && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  При отключенной доставке покупатели будут забирать товар по
+                  указанному адресу
+                </p>
+              )}
+
+              {/* Кнопка отправки */}
+              <button
+                type="submit"
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all transform hover:scale-[1.02] shadow-lg"
+              >
+                ➕ Добавить продукт
+              </button>
+            </form>
           </div>
         </div>
       </div>
