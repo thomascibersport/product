@@ -13,10 +13,11 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductShortSerializer(serializers.ModelSerializer):
     delivery_available = serializers.BooleanField()
-    
+    seller_address = serializers.CharField()
+
     class Meta:
         model = Product
-        fields = ['id', 'name', 'price', 'delivery_available']
+        fields = ['id', 'name', 'price', 'delivery_available', 'seller_address']
 
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
@@ -24,7 +25,7 @@ class ProductSerializer(serializers.ModelSerializer):
     editable = serializers.SerializerMethodField()
     delivery_available = serializers.BooleanField()
     farmer_name = serializers.SerializerMethodField()
-    
+    seller_address = serializers.CharField(required=False, allow_blank=True)
     # Добавляем поле farmer (id фермера)
     farmer = serializers.PrimaryKeyRelatedField(
         read_only=True  # Делаем его доступным только для чтения
@@ -43,7 +44,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'price', 'quantity', 
             'unit', 'category', 'category_id', 'image', 
             'farmer', 'farmer_name', 'created_at', 
-            'is_owner', 'editable', 'delivery_available'
+            'is_owner', 'editable', 'delivery_available','seller_address'
         ]
         read_only_fields = ('farmer', 'slug', 'editable')
 

@@ -268,11 +268,10 @@ const OrdersPage = () => {
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
                               <p>
                                 Адрес продавца:{" "}
-                                {item.product.farmer?.address || "Не указан"}
+                                {item.product.seller_address || "Не указан"}
                               </p>
                               <p>
-                                Контакты:{" "}
-                                {item.product.farmer?.phone || "Не указаны"}
+                                Контакты: {item.farmer?.phone || "Не указаны"}
                               </p>
                             </div>
                           )}

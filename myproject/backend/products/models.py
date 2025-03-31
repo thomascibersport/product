@@ -18,6 +18,7 @@ class Product(models.Model):
     farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     delivery_available = models.BooleanField(default=False, verbose_name="Доступна доставка")
+    seller_address = models.TextField(blank=True, null=True, verbose_name="Адрес продавца")
     def __str__(self):
         return self.name
     def save(self, *args, **kwargs):
