@@ -518,7 +518,7 @@ const CartPage = () => {
               {!showCardModal && (
                 <button
                   onClick={handleCreateOrder}
-                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
+                  className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
                 >
                   ✅ Оформить заказ
                 </button>

@@ -392,7 +392,7 @@ const AddProductModal = React.memo(
               {/* Кнопка отправки */}
               <button
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all transform hover:scale-[1.02] shadow-lg"
+                className="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all transform hover:scale-[1.02] shadow-lg"
               >
                 ➕ Добавить продукт
               </button>

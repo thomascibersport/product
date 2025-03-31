@@ -55,6 +55,7 @@ class CartItem(models.Model):
 class Order(models.Model):
     STATUS_CHOICES = [
         ('processing', 'В обработке'),
+        ('confirmed', 'Подтвержден'),
         ('shipped', 'Отправлен'),
         ('in_transit', 'В пути'),
         ('delivered', 'Доставлен'),

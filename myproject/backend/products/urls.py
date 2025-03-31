@@ -31,4 +31,6 @@ urlpatterns = [
     # Исправленная строка:
     path('my-products/', MyProductsList.as_view(), name='my-products'),
     path('orders/<int:pk>/cancel/', OrderViewSet.as_view({'post': 'cancel'}), name='order-cancel'),
+    path('orders/seller/', OrderViewSet.as_view({'get': 'seller_orders'}), name='seller-orders'),
+    path('orders/<int:pk>/confirm/', OrderViewSet.as_view({'post': 'confirm'}), name='order-confirm'),
 ]

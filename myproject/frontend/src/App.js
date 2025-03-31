@@ -9,6 +9,7 @@ import ProductDetail from "../src/components/ProductDetail";
 import CartPage from "../src/components/CartPage";
 import OrdersPage from "../src/pages/OrdersPage";
 import MyProductsPage from "../src/components/MyProductsPage";
+import SellerOrdersPage from "./pages/SellerOrdersPage";
 const App = () => {
   return (
     <Router>
@@ -23,6 +24,7 @@ const App = () => {
         <Route path="/cart" element={<CartPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/my-products" element={<MyProductsPage />} />
+        <Route path="/seller-orders" element={<SellerOrdersPage />} />
       </Routes>
     </Router>
   );

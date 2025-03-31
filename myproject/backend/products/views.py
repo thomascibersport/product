@@ -16,7 +16,8 @@ from .serializers import (
 )
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
-
+from django.shortcuts import get_object_or_404
+from .serializers import OrderSerializer
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -128,23 +129,28 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
-    # Правильный отступ для декоратора @action
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        order = self.get_object()
-        if order.user != request.user:
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def seller_orders(self, request):
+        seller = request.user
+        orders = Order.objects.filter(items__product__farmer=seller).distinct()
+        serializer = self.get_serializer(orders, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def confirm(self, request, pk=None):
+        order = get_object_or_404(Order, pk=pk)
+        seller = request.user
+        if not order.items.filter(product__farmer=seller).exists():
             return Response(
-                {'error': 'Вы не можете отменить этот заказ'},
+                {'error': 'Вы не можете подтвердить этот заказ'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        order.status = 'canceled'
+        order.status = 'confirmed'
         order.save()
-        return Response({'status': 'Заказ отменен'})
-    def get_queryset(self):
-            # Возвращаем только заказы текущего пользователя
-            return Order.objects.filter(user=self.request.user)
-    # Метод должен быть на том же уровне, что и cancel
+        return Response({'status': 'Заказ подтвержден'})
     def perform_create(self, serializer):
         serializer.save()
 class MyProductsList(generics.ListAPIView):

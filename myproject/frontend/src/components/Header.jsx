@@ -84,6 +84,9 @@ function Header() {
             <Link to="/my-products" className="hover:text-gray-300">
               Мои объявления
             </Link>
+            <Link to="/seller-orders" className="hover:text-gray-300">
+              Заказы на мои товары
+            </Link>
           </nav>
         )}
 

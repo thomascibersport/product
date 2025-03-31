@@ -114,19 +114,19 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return None
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)  # Только для чтения
+    items = OrderItemSerializer(many=True, read_only=True)
     status_display = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Order
         fields = [
-            'id', 'user', 'delivery_type',
-            'payment_method', 'delivery_address', 'pickup_address',
-            'total_amount', 'created_at', 'items', 'status', 'status_display'
+            'id', 'user', 'delivery_type', 'payment_method', 'delivery_address', 
+            'pickup_address', 'total_amount', 'created_at', 'items', 'status', 
+            'status_display'
         ]
         read_only_fields = ['user', 'total_amount']
+
     def get_status_display(self, obj):
-        """Получаем человеко-читаемое значение статуса"""
         return dict(Order.STATUS_CHOICES).get(obj.status, "Неизвестный статус")
     # Добавляем поле для получения данных от клиента
     def to_internal_value(self, data):

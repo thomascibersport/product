@@ -43,7 +43,9 @@ const OrdersPage = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case "processing":
-        return "border-yellow-500";
+        return "border-gray-500"; // Серый для "В обработке"
+      case "confirmed":
+        return "border-yellow-500"; // Желтый для "Подтвержден"
       case "shipped":
         return "border-blue-500";
       case "in_transit":
@@ -214,9 +216,11 @@ const OrdersPage = () => {
                       </div>
 
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        {order.status === "confirmed" ? "Подтверждено" : ""}
                         {
                           {
                             processing: "В обработке",
+                            confirmed: "", // Оставляем пустым, так как "Подтверждено" уже добавлено выше
                             shipped: "Отправлен",
                             in_transit: "В пути",
                             delivered: "Доставлен",
