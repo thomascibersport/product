@@ -141,7 +141,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.status = 'canceled'
         order.save()
         return Response({'status': 'Заказ отменен'})
-
+    def get_queryset(self):
+            # Возвращаем только заказы текущего пользователя
+            return Order.objects.filter(user=self.request.user)
     # Метод должен быть на том же уровне, что и cancel
     def perform_create(self, serializer):
         serializer.save()
