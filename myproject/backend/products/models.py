@@ -84,6 +84,8 @@ class Order(models.Model):
     )
     delivery_address = models.TextField(null=True, blank=True)
     pickup_address = models.TextField(null=True, blank=True)
+    # Новое поле для причины отмены
+    cancel_reason = models.TextField(null=True, blank=True, verbose_name="Причина отмены")
 
     def __str__(self):
         return f"Order #{self.id} - {self.user.email}"

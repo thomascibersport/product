@@ -112,17 +112,23 @@ class OrderItemSerializer(serializers.ModelSerializer):
                 'phone': obj.product.farmer.phone
             }
         return None
-
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name']
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_display = serializers.SerializerMethodField()
+    user = UserSerializer(read_only=True)
+    # Добавляем поле cancel_reason
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Order
         fields = [
             'id', 'user', 'delivery_type', 'payment_method', 'delivery_address', 
             'pickup_address', 'total_amount', 'created_at', 'items', 'status', 
-            'status_display'
+            'status_display', 'cancel_reason'
         ]
         read_only_fields = ['user', 'total_amount']
 

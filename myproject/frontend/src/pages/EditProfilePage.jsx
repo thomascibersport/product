@@ -1,17 +1,14 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import {
-  getUser,
-  updateProfile,
-  updatePassword,
-  uploadImage,
-} from "../api/auth";
+import { getUser, updateProfile, updatePassword, uploadImage } from "../api/auth";
 import { getToken } from "../utils/auth";
 import InputMask from "react-input-mask";
 import ReactCrop from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import "../App.css";
+
+import { AuthContext } from "../AuthContext"; 
+import "../index.css";
 function EditProfilePage() {
   const navigate = useNavigate();
   const [src, setSrc] = useState(null);
@@ -23,12 +20,13 @@ function EditProfilePage() {
     height: 200,
     aspect: 1,
   });
+  const { setAvatar } = useContext(AuthContext);
   const [completedCrop, setCompletedCrop] = useState(null);
   const imageRef = useRef(null);
   const [croppedBlob, setCroppedBlob] = useState(null);
-  const [croppedPreview, setCroppedPreview] = useState("/default-avatar.png");
+  const [croppedPreview, setCroppedPreview] = useState("/media/default-avatar.png");
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState("/default-avatar.png");
+  const [preview, setPreview] = useState("/media/default-avatar.png");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -43,6 +41,8 @@ function EditProfilePage() {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Added handleFileChange function
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const reader = new FileReader();
@@ -52,6 +52,27 @@ function EditProfilePage() {
       reader.readAsDataURL(e.target.files[0]);
     }
   };
+
+  const handleUpload = async () => {
+    try {
+      const token = getToken();
+      const formData = new FormData();
+      formData.append("avatar", croppedBlob);
+  
+      const response = await uploadImage(token, formData);
+      const newAvatarUrl = response.avatar_url + "?t=" + new Date().getTime();
+      setAvatar(newAvatarUrl);
+      setPreview(newAvatarUrl);
+  
+      // Сбрасываем состояния для скрытия кнопок
+      setSrc(null);
+      setCroppedBlob(null);
+      setCompletedCrop(null); // Опционально, для полной очистки
+    } catch (error) {
+      console.error("Ошибка загрузки аватара:", error);
+    }
+  };
+
   const getCroppedImg = (image, crop, fileName) => {
     const desiredWidth = 200;
     const desiredHeight = 200;
@@ -63,17 +84,16 @@ function EditProfilePage() {
     const scaleY = image.naturalHeight / image.height;
     ctx.drawImage(
       image,
-      crop.x * scaleX, 
-      crop.y * scaleY, 
+      crop.x * scaleX,
+      crop.y * scaleY,
       crop.width * scaleX,
-      crop.height * scaleY, 
-      0, 
-      0, 
-      desiredWidth, 
-      desiredHeight 
+      crop.height * scaleY,
+      0,
+      0,
+      desiredWidth,
+      desiredHeight
     );
     return new Promise((resolve, reject) => {
-
       canvas.toBlob((blob) => {
         if (!blob) {
           return reject(new Error("Не удалось создать изображение."));
@@ -83,7 +103,6 @@ function EditProfilePage() {
       }, "image/jpeg");
     });
   };
-
 
   const handleCropConfirm = async () => {
     if (!imageRef.current || !completedCrop) {
@@ -105,38 +124,6 @@ function EditProfilePage() {
     }
   };
 
-  // Загрузка аватарки на сервер
-  // Загрузка аватарки на сервер
-  const handleUpload = async () => {
-    if (!croppedBlob) {
-      alert("Сначала выберите и обрежьте изображение!");
-      return;
-    }
-    try {
-      setUploading(true);
-      const token = getToken();
-      const formData = new FormData();
-      formData.append("avatar", croppedBlob, "avatar.jpg");
-
-      const response = await uploadImage(token, formData);
-      if (response.avatar_url) {
-        // Обновляем аватар, полученный с сервера
-        setPreview(response.avatar_url);
-        alert("Аватар успешно обновлён!");
-        // Перезагружаем страницу, чтобы отобразить новый аватар
-        window.location.reload();
-      } else {
-        throw new Error("Не получен URL аватара");
-      }
-    } catch (error) {
-      console.error("Ошибка загрузки аватара:", error);
-      alert("Ошибка загрузки: " + error.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  /*** Загрузка данных пользователя при монтировании компонента ***/
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -147,7 +134,6 @@ function EditProfilePage() {
         }
 
         const response = await getUser(token);
-        // Заполняем состояния данными с сервера
         setUsername(response.data.username);
         setEmail(response.data.email);
         setFirstName(response.data.first_name);
@@ -165,6 +151,7 @@ function EditProfilePage() {
 
     fetchUserData();
   }, [navigate]);
+
   useEffect(() => {
     const handleResize = () => {
       if (imageRef.current) {
@@ -180,7 +167,7 @@ function EditProfilePage() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-  /*** Функции для редактирования профиля ***/
+
   const handleSaveProfile = async () => {
     try {
       const token = getToken();
@@ -206,7 +193,6 @@ function EditProfilePage() {
     }
   };
 
-  /*** Функция для смены пароля ***/
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword || !confirmNewPassword) {
       alert("Заполните все поля для смены пароля.");
@@ -265,7 +251,7 @@ function EditProfilePage() {
         </h1>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-8">
-          {/* Секция аватарки в общем стиле */}
+          {/* Секция аватарки */}
           <div className="space-y-6">
             <div className="flex flex-col items-center gap-6">
               <div className="relative group cursor-pointer">
@@ -291,8 +277,6 @@ function EditProfilePage() {
               </div>
 
               <div className="w-full space-y-4">
-
-
                 {src && (
                   <div className="space-y-4">
                     <ReactCrop

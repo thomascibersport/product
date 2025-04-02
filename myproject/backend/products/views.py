@@ -151,6 +151,35 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.status = 'confirmed'
         order.save()
         return Response({'status': 'Заказ подтвержден'})
+
+    # Новый метод cancel
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def cancel(self, request, pk=None):
+        order = get_object_or_404(Order, pk=pk)
+        seller = request.user
+        reason = request.data.get('reason', '')  # Получаем причину из запроса
+
+        # Проверка прав продавца
+        if not order.items.filter(product__farmer=seller).exists():
+            return Response(
+                {'error': 'Вы не можете отменить этот заказ'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Проверка статуса заказа
+        if order.status != 'processing':
+            return Response(
+                {'error': 'Невозможно отменить заказ в текущем статусе'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Обновляем статус и сохраняем причину
+        order.status = 'canceled'
+        order.cancel_reason = reason
+        order.save()
+
+        return Response({'status': 'Заказ отменен', 'reason': reason})
+
     def perform_create(self, serializer):
         serializer.save()
 class MyProductsList(generics.ListAPIView):

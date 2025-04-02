@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -9,10 +9,11 @@ import {
 import { Button } from "./ui/button";
 import { getUser } from "../api/auth";
 import { getToken, logout as clearToken } from "../utils/auth";
+import { AuthContext } from "../AuthContext"; // Импортируем контекст
 
 function Header() {
+  const { avatar, setAvatar } = useContext(AuthContext); // Используем контекст
   const [username, setUsername] = useState("Гость");
-  const [avatar, setAvatar] = useState("/media/default-avatar.png");
   const [user, setUser] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -35,9 +36,9 @@ function Header() {
           return;
         }
         const response = await getUser(token);
-        setUser(response.data); // Сохраняем данные пользователя
+        setUser(response.data);
         setUsername(response.data.username);
-        setAvatar(response.data.avatar || "/media/default-avatar.png");
+        setAvatar(response.data.avatar || "/media/default-avatar.png"); // Устанавливаем аватар из данных пользователя
         setIsAuthenticated(true);
       } catch (error) {
         console.error("Ошибка загрузки данных пользователя:", error);
@@ -46,13 +47,13 @@ function Header() {
     };
 
     fetchUserData();
-  }, [navigate]);
+  }, [navigate, setAvatar]); // Добавляем setAvatar в зависимости
 
   const handleLogout = () => {
     clearToken();
     setIsAuthenticated(false);
     setUsername("Гость");
-    setAvatar("/media/default-avatar.png");
+    setAvatar("/media/default-avatar.png"); // Сбрасываем аватар при выходе
     navigate("/login");
   };
 
@@ -71,7 +72,6 @@ function Header() {
           Продукты
         </Link>
 
-        {/* Отображаем навигацию только для авторизованных пользователей */}
         {isAuthenticated && (
           <nav className="flex space-x-4">
             <Link to="/orders" className="hover:text-gray-300">
@@ -80,7 +80,6 @@ function Header() {
             <Link to="/cart" className="hover:text-gray-300">
               Корзина
             </Link>
-            {/* Исправленная строка: используем isAuthenticated вместо user */}
             <Link to="/my-products" className="hover:text-gray-300">
               Мои объявления
             </Link>
@@ -97,7 +96,7 @@ function Header() {
               className="flex items-center gap-2 text-white hover:bg-gray-700"
             >
               <img
-                src={avatar}
+                src={avatar} // Используем аватар из контекста
                 alt="avatar"
                 className="w-10 h-10 rounded-full object-cover"
               />

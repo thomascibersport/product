@@ -14,38 +14,22 @@ const OrdersPage = () => {
   const navigate = useNavigate();
 
   const waveAnimation = `
-  @keyframes wave-group {
-    0% {
-      transform: scale(0.3);
-      opacity: 1;
+    @keyframes wave-group {
+      0% { transform: scale(0.3); opacity: 1; }
+      90% { transform: scale(1.6); opacity: 0; }
+      100% { transform: scale(1.6); opacity: 0; }
     }
-    90% {
-      transform: scale(1.6);
-      opacity: 0;
-    }
-    100% {
-      transform: scale(1.6);
-      opacity: 0;
-    }
-  }
-
-  .animate-wave-1 {
-    animation: wave-group 2s ease-out infinite;
-  }
-  .animate-wave-2 {
-    animation: wave-group 2s ease-out infinite 0.3s;
-  }
-  .animate-wave-3 {
-    animation: wave-group 2s ease-out infinite 0.6s;
-  }
-`;
+    .animate-wave-1 { animation: wave-group 2s ease-out infinite; }
+    .animate-wave-2 { animation: wave-group 2s ease-out infinite 0.3s; }
+    .animate-wave-3 { animation: wave-group 2s ease-out infinite 0.6s; }
+  `;
 
   const getStatusColor = (status) => {
     switch (status) {
       case "processing":
-        return "border-gray-500"; // Серый для "В обработке"
+        return "border-gray-500";
       case "confirmed":
-        return "border-yellow-500"; // Желтый для "Подтвержден"
+        return "border-yellow-500";
       case "shipped":
         return "border-blue-500";
       case "in_transit":
@@ -66,7 +50,6 @@ const OrdersPage = () => {
         navigate("/login");
         return;
       }
-
       try {
         const response = await axios.get("http://localhost:8000/api/orders/", {
           headers: { Authorization: `Bearer ${token}` },
@@ -78,13 +61,11 @@ const OrdersPage = () => {
         setLoading(false);
       }
     };
-
     fetchOrders();
   }, [navigate]);
 
-  const formatDate = (dateString) => {
-    return moment(dateString).format("DD.MM.YYYY HH:mm");
-  };
+  const formatDate = (dateString) =>
+    moment(dateString).format("DD.MM.YYYY HH:mm");
 
   const cancelOrder = async (orderId) => {
     const token = Cookies.get("token");
@@ -92,7 +73,6 @@ const OrdersPage = () => {
       navigate("/login");
       return;
     }
-
     if (!window.confirm("Вы уверены, что хотите отменить заказ?")) return;
 
     try {
@@ -101,13 +81,9 @@ const OrdersPage = () => {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      const updatedOrders = orders.map((order) => {
-        if (order.id === orderId) {
-          return { ...order, status: "canceled" };
-        }
-        return order;
-      });
+      const updatedOrders = orders.map((order) =>
+        order.id === orderId ? { ...order, status: "canceled" } : order
+      );
       setOrders(updatedOrders);
       alert("Заказ успешно отменен");
     } catch (error) {
@@ -122,7 +98,6 @@ const OrdersPage = () => {
         Загрузка заказов...
       </div>
     );
-
   if (error)
     return (
       <div className="text-center py-10 text-red-500 dark:text-red-400">
@@ -134,12 +109,10 @@ const OrdersPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <style>{waveAnimation}</style>
       <Header />
-
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           📦 История заказов
         </h1>
-
         {orders.length === 0 ? (
           <div className="text-center py-20">
             <div className="inline-block bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl transform transition hover:scale-105">
@@ -167,7 +140,6 @@ const OrdersPage = () => {
                     order.status
                   ).replace("border", "bg")}`}
                 />
-
                 <div className="flex flex-col md:flex-row justify-between mb-4">
                   <div className="space-y-2">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">
@@ -176,11 +148,7 @@ const OrdersPage = () => {
                     <p className="text-gray-600 dark:text-gray-400">
                       {formatDate(order.created_at)}
                     </p>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      <p>Продавец: {order.farmer_name || "Неизвестен"}</p>
-                    </div>
                   </div>
-
                   <div className="space-y-2 mt-4 md:mt-0">
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
@@ -188,14 +156,12 @@ const OrdersPage = () => {
                           ? "🚚 Доставка"
                           : "🏪 Самовывоз"}
                       </span>
-
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
                         {order.payment_method === "card"
                           ? "💳 Карта"
                           : "💵 Наличные"}
                       </span>
                     </div>
-
                     <div className="flex items-center gap-2 mt-2">
                       <div className="relative w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
                         <div
@@ -214,24 +180,28 @@ const OrdersPage = () => {
                           )} animate-wave-3 opacity-0`}
                         />
                       </div>
-
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                         {order.status === "confirmed" ? "Подтверждено" : ""}
-                        {
+                        {[
+                          "processing",
+                          "confirmed",
+                          "shipped",
+                          "in_transit",
+                          "delivered",
+                          "canceled",
+                        ].includes(order.status) &&
                           {
                             processing: "В обработке",
-                            confirmed: "", // Оставляем пустым, так как "Подтверждено" уже добавлено выше
+                            confirmed: "",
                             shipped: "Отправлен",
                             in_transit: "В пути",
                             delivered: "Доставлен",
                             canceled: "Отменен",
-                          }[order.status]
-                        }
+                          }[order.status]}
                       </span>
                     </div>
                   </div>
                 </div>
-
                 <div className="mb-4">
                   {order.delivery_type === "delivery" ? (
                     <p className="text-gray-600 dark:text-gray-400">
@@ -267,7 +237,10 @@ const OrdersPage = () => {
                                 </span>
                               )}
                           </p>
-
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Продавец:{" "}
+                            {item.product?.farmer_name || "Неизвестен"}
+                          </p>
                           {item.product && !item.product.delivery_available && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
                               <p>
@@ -275,11 +248,11 @@ const OrdersPage = () => {
                                 {item.product.seller_address || "Не указан"}
                               </p>
                               <p>
-                                Контакты: {item.farmer?.phone || "Не указаны"}
+                                Контакты:{" "}
+                                {item.product.farmer?.phone || "Не указаны"}
                               </p>
                             </div>
                           )}
-
                           <div className="flex justify-between items-center">
                             <div>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -298,7 +271,6 @@ const OrdersPage = () => {
                     ))}
                   </div>
                 </div>
-
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold text-gray-800 dark:text-white">
