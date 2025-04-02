@@ -2,9 +2,9 @@ from django.contrib import admin
 from .models import Product, Category, CartItem, Order, OrderItem
 
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'farmer', 'price', 'created_at')
-    list_filter = ('category', 'farmer')
-    search_fields = ('name', 'description')
+    list_display = ('name', 'category', 'farmer', 'price', 'created_at', 'delivery_available')
+    list_filter = ('category', 'farmer', 'delivery_available')
+    search_fields = ('name', 'description', 'seller_address')
     list_editable = ('price',)
     prepopulated_fields = {'slug': ('name',)}
 
@@ -27,9 +27,9 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'created_at', 'status', 'get_farmers']
-    list_filter = ('status', 'delivery_type', 'payment_method')
-    search_fields = ('user__email', 'delivery_address', 'pickup_address')
+    list_display = ['id', 'user', 'created_at', 'status', 'get_farmers', 'canceled_by', 'cancel_reason']
+    list_filter = ('status', 'delivery_type', 'payment_method', 'canceled_by')
+    search_fields = ('user__email', 'delivery_address', 'pickup_address', 'cancel_reason')
     inlines = [OrderItemInline]
     fieldsets = (
         (None, {
@@ -37,7 +37,9 @@ class OrderAdmin(admin.ModelAdmin):
                 'user', 
                 'status', 
                 'total_amount',
-                ('delivery_type', 'payment_method'),  # Добавлена запятая здесь
+                ('delivery_type', 'payment_method'),
+                'canceled_by',
+                'cancel_reason',
             )
         }),
         ('Адреса', {
@@ -48,13 +50,14 @@ class OrderAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
     def get_farmers(self, obj):
         farmers = set(item.product.farmer for item in obj.items.all() if item.product)
         return ", ".join([f"{f.first_name} {f.last_name}" for f in farmers])
     get_farmers.short_description = 'Продавцы'
+
     def get_address(self, obj):
         return obj.delivery_address if obj.delivery_type == 'delivery' else obj.pickup_address
-
     get_address.short_description = 'Адрес'
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Category, CategoryAdmin)

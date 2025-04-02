@@ -1,14 +1,19 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import { getUser, updateProfile, updatePassword, uploadImage } from "../api/auth";
+import {
+  getUser,
+  updateProfile,
+  updatePassword,
+  uploadImage,
+} from "../api/auth";
 import { getToken } from "../utils/auth";
 import InputMask from "react-input-mask";
 import ReactCrop from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-
-import { AuthContext } from "../AuthContext"; 
+import { AuthContext } from "../AuthContext";
 import "../index.css";
+
 function EditProfilePage() {
   const navigate = useNavigate();
   const [src, setSrc] = useState(null);
@@ -33,6 +38,7 @@ function EditProfilePage() {
   const [lastName, setLastName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [phone, setPhone] = useState("");
+  const [showPhone, setShowPhone] = useState(true); // Добавлено состояние для чекбокса
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -42,13 +48,11 @@ function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Added handleFileChange function
+  // Обработчик изменения файла для аватара
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const reader = new FileReader();
-      reader.onload = () => {
-        setSrc(reader.result);
-      };
+      reader.onload = () => setSrc(reader.result);
       reader.readAsDataURL(e.target.files[0]);
     }
   };
@@ -58,16 +62,13 @@ function EditProfilePage() {
       const token = getToken();
       const formData = new FormData();
       formData.append("avatar", croppedBlob);
-  
       const response = await uploadImage(token, formData);
       const newAvatarUrl = response.avatar_url + "?t=" + new Date().getTime();
       setAvatar(newAvatarUrl);
       setPreview(newAvatarUrl);
-  
-      // Сбрасываем состояния для скрытия кнопок
       setSrc(null);
       setCroppedBlob(null);
-      setCompletedCrop(null); // Опционально, для полной очистки
+      setCompletedCrop(null);
     } catch (error) {
       console.error("Ошибка загрузки аватара:", error);
     }
@@ -95,9 +96,7 @@ function EditProfilePage() {
     );
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
-        if (!blob) {
-          return reject(new Error("Не удалось создать изображение."));
-        }
+        if (!blob) return reject(new Error("Не удалось создать изображение."));
         blob.name = fileName;
         resolve(blob);
       }, "image/jpeg");
@@ -110,11 +109,7 @@ function EditProfilePage() {
       return;
     }
     try {
-      const blob = await getCroppedImg(
-        imageRef.current,
-        completedCrop,
-        "avatar.jpg"
-      );
+      const blob = await getCroppedImg(imageRef.current, completedCrop, "avatar.jpg");
       setCroppedBlob(blob);
       setCroppedPreview(URL.createObjectURL(blob));
       alert("Изображение готово к загрузке!");
@@ -132,14 +127,18 @@ function EditProfilePage() {
           navigate("/login");
           return;
         }
-
-        const response = await getUser(token);
+        const response = await axios.put(`http://localhost:8000/api/users/update/`, profileData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         setUsername(response.data.username);
         setEmail(response.data.email);
         setFirstName(response.data.first_name);
         setLastName(response.data.last_name);
         setMiddleName(response.data.middle_name);
         setPhone(response.data.phone);
+        setShowPhone(response.data.show_phone ?? true); // Загружаем значение или true по умолчанию
         setPreview(response.data.avatar || "/media/default-avatar.png");
         setLoading(false);
       } catch (err) {
@@ -148,7 +147,6 @@ function EditProfilePage() {
         setLoading(false);
       }
     };
-
     fetchUserData();
   }, [navigate]);
 
@@ -163,7 +161,6 @@ function EditProfilePage() {
         }));
       }
     };
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -182,8 +179,8 @@ function EditProfilePage() {
         last_name: lastName,
         middle_name: middleName,
         phone,
+        show_phone: showPhone, // Добавляем значение чекбокса в данные
       };
-
       const response = await updateProfile(token, profileData);
       console.log("Ответ обновления профиля:", response);
       alert("Профиль успешно обновлён!");
@@ -208,7 +205,6 @@ function EditProfilePage() {
         navigate("/login");
         return;
       }
-
       const response = await updatePassword(token, {
         old_password: oldPassword,
         new_password: newPassword,
@@ -220,9 +216,7 @@ function EditProfilePage() {
       setConfirmNewPassword("");
     } catch (err) {
       console.error("Ошибка смены пароля:", err);
-      alert(
-        "Не удалось изменить пароль. Проверьте правильность ввода старого пароля."
-      );
+      alert("Не удалось изменить пароль. Проверьте правильность ввода старого пароля.");
     }
   };
 
@@ -249,7 +243,6 @@ function EditProfilePage() {
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           ✏️ Редактирование профиля
         </h1>
-
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-8">
           {/* Секция аватарки */}
           <div className="space-y-6">
@@ -262,9 +255,7 @@ function EditProfilePage() {
                     className="w-full h-full object-cover object-center border-4 border-blue-100 dark:border-blue-900/50 shadow-lg scale-105 transition-transform group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                    <span className="text-white text-sm font-medium">
-                      Изменить
-                    </span>
+                    <span className="text-white text-sm font-medium">Изменить</span>
                   </div>
                   <input
                     type="file"
@@ -275,7 +266,6 @@ function EditProfilePage() {
                   />
                 </label>
               </div>
-
               <div className="w-full space-y-4">
                 {src && (
                   <div className="space-y-4">
@@ -291,8 +281,7 @@ function EditProfilePage() {
                         alt="Crop source"
                         className="max-h-96 w-full object-contain"
                         onLoad={(e) => {
-                          const { naturalWidth: nw, naturalHeight: nh } =
-                            e.currentTarget;
+                          const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
                           const minSize = Math.min(nw, nh, 200);
                           setCrop({
                             unit: "px",
@@ -305,7 +294,6 @@ function EditProfilePage() {
                         }}
                       />
                     </ReactCrop>
-
                     <div className="flex gap-4">
                       <button
                         onClick={handleCropConfirm}
@@ -316,7 +304,6 @@ function EditProfilePage() {
                     </div>
                   </div>
                 )}
-
                 {croppedBlob && (
                   <button
                     onClick={handleUpload}
@@ -370,7 +357,6 @@ function EditProfilePage() {
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email
@@ -382,7 +368,6 @@ function EditProfilePage() {
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Имя
@@ -394,7 +379,6 @@ function EditProfilePage() {
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Фамилия
@@ -406,7 +390,6 @@ function EditProfilePage() {
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Отчество
@@ -418,7 +401,6 @@ function EditProfilePage() {
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Телефон
@@ -431,7 +413,18 @@ function EditProfilePage() {
                 />
               </div>
             </div>
-
+            {/* Чекбокс для видимости телефона */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={showPhone}
+                onChange={(e) => setShowPhone(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label className="text-sm text-gray-700 dark:text-gray-300">
+                Показывать телефон другим пользователям
+              </label>
+            </div>
             <button
               onClick={handleSaveProfile}
               className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
@@ -445,7 +438,6 @@ function EditProfilePage() {
             <h3 className="text-xl font-bold text-gray-800 dark:text-white">
               🔒 Смена пароля
             </h3>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -466,7 +458,6 @@ function EditProfilePage() {
                   </button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Новый пароль
@@ -486,7 +477,6 @@ function EditProfilePage() {
                   </button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Подтвердите новый пароль
@@ -499,16 +489,13 @@ function EditProfilePage() {
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-12"
                   />
                   <button
-                    onClick={() =>
-                      setShowConfirmNewPassword(!showConfirmNewPassword)
-                    }
+                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
                     className="absolute right-3 top-3 text-gray-500 dark:text-gray-400 hover:text-blue-500"
                   >
                     {showConfirmNewPassword ? "👁️" : "👁️‍🗨️"}
                   </button>
                 </div>
               </div>
-
               <button
                 onClick={handleChangePassword}
                 className="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"

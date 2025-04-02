@@ -1,14 +1,18 @@
 from django.urls import path
 from .views import (
-    ProductList, 
-    ProductCreate, 
-    CategoryList, 
-    ProductDetail, 
+    ProductList,
+    ProductCreate,
+    CategoryList,
+    ProductDetail,
     CartItemViewSet,
     OrderViewSet,
     MyProductsList,
+    UserProductsList,
+    UserProfileView,
+    UpdateProfileView  
 )
-
+from django.conf import settings
+from django.conf.urls.static import static
 urlpatterns = [
     path('products/create/', ProductCreate.as_view(), name='product-create'),
     path('products/', ProductList.as_view(), name='product-list'),
@@ -18,7 +22,7 @@ urlpatterns = [
         'get': 'list',
         'post': 'create'
     }), name='cart-items'),
-    path('cart/items/<int:pk>/', CartItemViewSet.as_view({ 
+    path('cart/items/<int:pk>/', CartItemViewSet.as_view({
         'get': 'retrieve',
         'put': 'update',
         'delete': 'destroy'
@@ -28,9 +32,12 @@ urlpatterns = [
         'post': 'create'
     }), name='orders'),
     path('cart/clear/', CartItemViewSet.as_view({'delete': 'clear'}), name='clear-cart'),
-    # Исправленная строка:
     path('my-products/', MyProductsList.as_view(), name='my-products'),
     path('orders/<int:pk>/cancel/', OrderViewSet.as_view({'post': 'cancel'}), name='order-cancel'),
     path('orders/seller/', OrderViewSet.as_view({'get': 'seller_orders'}), name='seller-orders'),
     path('orders/<int:pk>/confirm/', OrderViewSet.as_view({'post': 'confirm'}), name='order-confirm'),
-]
+    path('api/products/<int:pk>/', ProductDetail.as_view(), name='product-detail'),
+    path('users/<int:id>/', UserProfileView.as_view(), name='user-profile'),  
+    path('users/<int:user_id>/products/', UserProductsList.as_view(), name='user-products'),
+    path('users/update/', UpdateProfileView.as_view(), name='update-profile'),
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

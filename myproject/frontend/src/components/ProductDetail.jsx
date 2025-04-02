@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
@@ -16,12 +16,10 @@ const ProductDetail = () => {
   const [cartMessage, setCartMessage] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Получаем данные продукта. Если токена нет, заголовок не передаётся.
+  // Загрузка данных продукта
   useEffect(() => {
     const token = Cookies.get("token");
-    const config = token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : {};
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
     axios
       .get(`http://localhost:8000/api/products/${id}/`, config)
@@ -36,7 +34,7 @@ const ProductDetail = () => {
       });
   }, [id]);
 
-  // Получаем данные текущего пользователя, если токен имеется.
+  // Загрузка данных текущего пользователя
   useEffect(() => {
     const token = Cookies.get("token");
     if (token) {
@@ -48,6 +46,7 @@ const ProductDetail = () => {
     }
   }, []);
 
+  // Обработка состояния загрузки и ошибок
   if (loading)
     return (
       <div className="text-center py-10 text-gray-600 dark:text-gray-400">
@@ -70,10 +69,9 @@ const ProductDetail = () => {
     );
 
   const totalCost = (Number(displayProduct.price) * quantity).toFixed(2);
-  // Если пользователь авторизован и является владельцем (продавцом) данного продукта
-  const isOwner =
-    currentUser && displayProduct.farmer_name === currentUser.username;
+  const isOwner = currentUser && displayProduct.farmer === currentUser.id;
 
+  // Функция добавления в корзину
   const handleAddToCart = async () => {
     if (isOwner) {
       setCartMessage({
@@ -170,7 +168,13 @@ const ProductDetail = () => {
                   {displayProduct.description}
                 </p>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Продавец: {displayProduct.farmer_name}
+                  Продавец:{" "}
+                  <Link
+                    to={`/users/${displayProduct.farmer}/`}
+                    className="text-blue-500 hover:underline"
+                  >
+                    {displayProduct.farmer_name}
+                  </Link>
                 </p>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">

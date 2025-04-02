@@ -16,51 +16,34 @@ const AddProductModal = React.memo(
     formError,
     categories,
     measurementUnits,
+    isEditing = false,
+    imagePreview,
   }) => {
     const [localState, setLocalState] = useState(formState);
-    const [imagePreview, setImagePreview] = useState(null);
+    const [localImagePreview, setLocalImagePreview] = useState(imagePreview);
     const modalRef = useRef(null);
 
-    // Закрытие модального окна при клике вне его
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (modalRef.current && !modalRef.current.contains(event.target)) {
-          onClose();
-        }
-      };
-
-      if (isOpen) {
-        document.addEventListener("mousedown", handleClickOutside);
-      }
-
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }, [isOpen, onClose]);
-
-    // Синхронизация локального состояния с переданным formState
     useEffect(() => {
       setLocalState(formState);
-    }, [formState]);
+      setLocalImagePreview(imagePreview);
+    }, [formState, imagePreview]);
 
-    // Обработчик изменения полей
+    // Define handleChange to update localState
     const handleChange = useCallback((field, value) => {
       setLocalState((prev) => ({ ...prev, [field]: value }));
     }, []);
 
-    // Обработчик загрузки изображения
     const handleFileChange = useCallback(
       (e) => {
         const file = e.target.files[0];
         if (file) {
           handleChange("image", file);
-          setImagePreview(URL.createObjectURL(file));
+          setLocalImagePreview(URL.createObjectURL(file));
         }
       },
       [handleChange]
     );
 
-    // Обработчик отправки формы
     const handleSubmitForm = useCallback(
       (e) => {
         e.preventDefault();
@@ -80,18 +63,13 @@ const AddProductModal = React.memo(
           <div className="p-6 space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                📦 Добавить новый продукт
+                {isEditing ? "✏️ Редактировать продукт" : "📦 Добавить новый продукт"}
               </h2>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500 dark:text-gray-400"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -102,24 +80,20 @@ const AddProductModal = React.memo(
               </button>
             </div>
 
-            {/* Сообщение об успехе */}
             {successMessage && (
               <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl">
                 ✅ {successMessage}
               </div>
             )}
 
-            {/* Сообщение об ошибке */}
             {formError && (
               <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl">
                 ❌ {formError}
               </div>
             )}
 
-            {/* Форма */}
             <form onSubmit={handleSubmitForm} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Название продукта */}
                 <div>
                   <label className="block text-sm font-medium text-gray-900 dark:text-gray-300 mb-1">
                     Название продукта
@@ -144,7 +118,6 @@ const AddProductModal = React.memo(
                   )}
                 </div>
 
-                {/* Цена */}
                 <div>
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Цена за единицу
@@ -177,7 +150,6 @@ const AddProductModal = React.memo(
                 </div>
               </div>
 
-              {/* Описание */}
               <div>
                 <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                   Описание
@@ -202,7 +174,6 @@ const AddProductModal = React.memo(
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Количество */}
                 <div>
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Количество на складе
@@ -229,7 +200,6 @@ const AddProductModal = React.memo(
                   )}
                 </div>
 
-                {/* Единица измерения */}
                 <div>
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Единица измерения
@@ -257,7 +227,6 @@ const AddProductModal = React.memo(
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Категория */}
                 <div>
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Категория
@@ -280,7 +249,6 @@ const AddProductModal = React.memo(
                   </select>
                 </div>
 
-                {/* Адрес продавца */}
                 <div>
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Адрес продавца
@@ -288,9 +256,7 @@ const AddProductModal = React.memo(
                   <input
                     type="text"
                     value={localState.seller_address}
-                    onChange={(e) =>
-                      handleChange("seller_address", e.target.value)
-                    }
+                    onChange={(e) => handleChange("seller_address", e.target.value)}
                     placeholder="Введите адрес пункта выдачи"
                     className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
                       formErrors.seller_address
@@ -306,7 +272,6 @@ const AddProductModal = React.memo(
                 </div>
               </div>
 
-              {/* Изображение */}
               <div>
                 <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                   Изображение продукта
@@ -320,9 +285,9 @@ const AddProductModal = React.memo(
                     } transition-all cursor-pointer`}
                   >
                     <div className="p-4 text-center">
-                      {imagePreview ? (
+                      {localImagePreview ? (
                         <img
-                          src={imagePreview}
+                          src={localImagePreview}
                           alt="Preview"
                           className="mx-auto h-32 object-cover rounded-lg"
                         />
@@ -342,9 +307,7 @@ const AddProductModal = React.memo(
                             />
                           </svg>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {localState.image
-                              ? localState.image.name
-                              : "Перетащите или выберите файл"}
+                            Перетащите или выберите файл
                           </p>
                         </>
                       )}
@@ -364,14 +327,11 @@ const AddProductModal = React.memo(
                 )}
               </div>
 
-              {/* Доступна доставка */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={localState.delivery_available}
-                  onChange={(e) =>
-                    handleChange("delivery_available", e.target.checked)
-                  }
+                  onChange={(e) => handleChange("delivery_available", e.target.checked)}
                   className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 transition-all"
                   id="deliveryCheckbox"
                 />
@@ -384,17 +344,15 @@ const AddProductModal = React.memo(
               </div>
               {!localState.delivery_available && (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  При отключенной доставке покупатели будут забирать товар по
-                  указанному адресу
+                  При отключенной доставке покупатели будут забирать товар по указанному адресу
                 </p>
               )}
 
-              {/* Кнопка отправки */}
               <button
                 type="submit"
                 className="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all transform hover:scale-[1.02] shadow-lg"
               >
-                ➕ Добавить продукт
+                {isEditing ? "💾 Сохранить изменения" : "➕ Добавить продукт"}
               </button>
             </form>
           </div>
@@ -409,6 +367,7 @@ const MyProductsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null); // Added imagePreview state
   const navigate = useNavigate();
 
   const [formState, setFormState] = useState({
@@ -461,6 +420,27 @@ const MyProductsPage = () => {
       .catch(console.error);
   }, [navigate]);
 
+  // Define handleEdit in MyProductsPage
+  const handleEdit = useCallback(
+    (product) => {
+      setFormState({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price.toString(),
+        quantity: product.quantity.toString(),
+        unit: product.unit,
+        category: product.category?.id.toString() || "",
+        image: null,
+        delivery_available: product.delivery_available,
+        seller_address: product.seller_address,
+      });
+      setImagePreview(product.image);
+      setIsModalOpen(true);
+    },
+    [setFormState, setImagePreview, setIsModalOpen]
+  );
+
   const handleSubmit = useCallback(
     async (formData) => {
       setFormErrors({});
@@ -473,39 +453,44 @@ const MyProductsPage = () => {
       }
 
       try {
-        // 1. Создаем FormData и явно преобразуем типы
         const data = new FormData();
         data.append("seller_address", formData.seller_address);
-        // Обязательные поля
         data.append("name", formData.name);
         data.append("description", formData.description);
         data.append("delivery_available", formData.delivery_available);
-        // Числовые поля с валидацией
-        data.append("category_id", Number(formData.category)); // Ключ должен совпадать с сериализатором
+        data.append("category_id", Number(formData.category));
         data.append("price", parseFloat(formData.price));
         data.append("quantity", parseInt(formData.quantity, 10));
-
-        // Текстовые поля
         data.append("unit", formData.unit);
-
-        // Изображение (если есть)
         if (formData.image) {
           data.append("image", formData.image);
         }
 
-        // 2. Отправка запроса
-        const response = await axios.post(
-          "http://localhost:8000/api/products/create/",
-          data,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        let response;
+        if (formData.id) {
+          response = await axios.put(
+            `http://localhost:8000/api/products/${formData.id}/`,
+            data,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+        } else {
+          response = await axios.post(
+            "http://localhost:8000/api/products/create/",
+            data,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+        }
 
-        // 3. Обновление списка продуктов после успешного создания
         const productsResponse = await axios.get(
           "http://localhost:8000/api/my-products/",
           {
@@ -514,7 +499,6 @@ const MyProductsPage = () => {
         );
         setProducts(productsResponse.data);
 
-        // 4. Сброс формы и состояния
         setFormState({
           name: "",
           description: "",
@@ -523,57 +507,56 @@ const MyProductsPage = () => {
           unit: measurementUnits[0],
           category: categories[0]?.id.toString() || "",
           image: null,
+          delivery_available: false,
+          seller_address: "",
         });
+        setImagePreview(null);
         setIsModalOpen(false);
-        setSuccessMessage("Продукт успешно добавлен!");
+        setSuccessMessage(
+          formData.id ? "Продукт успешно обновлен!" : "Продукт успешно добавлен!"
+        );
       } catch (error) {
-        // 5. Обработка ошибок
         if (error.response) {
-          // Ошибки валидации Django
           if (error.response.data?.errors) {
             setFormErrors(
               Object.fromEntries(
-                Object.entries(error.response.data.errors).map(
-                  ([key, value]) => [
-                    key,
-                    Array.isArray(value) ? value.join(" ") : value,
-                  ]
-                )
+                Object.entries(error.response.data.errors).map(([key, value]) => [
+                  key,
+                  Array.isArray(value) ? value.join(" ") : value,
+                ])
               )
             );
           } else {
-            setFormError(
-              error.response.data?.detail ||
-                "Произошла ошибка при создании продукта"
-            );
+            setFormError(error.response.data?.detail || "Произошла ошибка");
           }
-        } else if (error.request) {
-          setFormError("Нет ответа от сервера");
         } else {
-          setFormError("Ошибка настройки запроса");
+          setFormError("Ошибка сети");
         }
       }
     },
     [categories, measurementUnits]
   );
 
-  const handleDelete = useCallback((productId) => {
-    const token = Cookies.get("token");
-    axios
-      .delete(`http://localhost:8000/api/products/${productId}/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-CSRFToken": Cookies.get("csrftoken"), // Для Django CSRF
-        },
-      })
-      .then(() => {
-        setProducts((prev) => prev.filter((p) => p.id !== productId));
-      })
-      .catch((error) => {
-        console.error("Ошибка удаления:", error);
-        alert(error.response?.data?.error || "Ошибка при удалении товара");
-      });
-  }, []);
+  const handleDelete = useCallback(
+    (productId) => {
+      const token = Cookies.get("token");
+      axios
+        .delete(`http://localhost:8000/api/products/${productId}/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-CSRFToken": Cookies.get("csrftoken"),
+          },
+        })
+        .then(() => {
+          setProducts((prev) => prev.filter((p) => p.id !== productId));
+        })
+        .catch((error) => {
+          console.error("Ошибка удаления:", error);
+          alert(error.response?.data?.error || "Ошибка при удалении товара");
+        });
+    },
+    [setProducts]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-200 dark:[color-scheme:dark]">
@@ -638,9 +621,7 @@ const MyProductsPage = () => {
                       />
                     ) : (
                       <div className="w-full h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center rounded-xl">
-                        <span className="text-gray-400">
-                          🖼️ Нет изображения
-                        </span>
+                        <span className="text-gray-400">🖼️ Нет изображения</span>
                       </div>
                     )}
                   </div>
@@ -669,15 +650,24 @@ const MyProductsPage = () => {
                       </span>
                     </div>
                     <button
+                      onClick={() => handleEdit(product)}
+                      className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                        />
+                      </svg>
+                      Редактировать
+                    </button>
+                    <button
                       onClick={() => handleDelete(product.id)}
                       className="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -696,7 +686,10 @@ const MyProductsPage = () => {
 
         <AddProductModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setImagePreview(null);
+          }}
           onSubmit={handleSubmit}
           formState={formState}
           formErrors={formErrors}
@@ -704,6 +697,8 @@ const MyProductsPage = () => {
           formError={formError}
           categories={categories}
           measurementUnits={measurementUnits}
+          isEditing={!!formState.id}
+          imagePreview={imagePreview}
         />
       </div>
     </div>

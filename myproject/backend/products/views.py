@@ -12,12 +12,38 @@ from .serializers import (
     CategorySerializer, 
     CartItemSerializer, 
     CartItemDetailSerializer,
-    OrderSerializer  
+    OrderSerializer,
+    UserProfileSerializer
 )
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
 from .serializers import OrderSerializer
+from rest_framework.exceptions import PermissionDenied
+from django.contrib.auth import get_user_model
+from .serializers import UserProfileSerializer
+
+
+User = get_user_model()
+
+class UpdateProfileView(generics.UpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserProfileSerializer
+    lookup_field = 'id'
+    permission_classes = [AllowAny]
+
+class UpdateProfileView(generics.UpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -49,7 +75,10 @@ class ProductDetail(generics.RetrieveDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [AllowAny]
-
+    def perform_update(self, serializer):
+            if serializer.instance.seller != self.request.user:  # Предполагается поле seller
+                raise PermissionDenied("Вы не можете редактировать этот продукт")
+            serializer.save()
     def delete(self, request, *args, **kwargs):
         try:
             # Проверка аутентификации
@@ -140,6 +169,31 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def cancel(self, request, pk=None):
+        order = get_object_or_404(Order, pk=pk)
+        user = request.user
+        reason = request.data.get('reason', '')
+
+        # Проверка: если пользователь — покупатель или продавец
+        if order.user == user or order.items.filter(product__farmer=user).exists():
+            if order.status != 'processing':
+                return Response(
+                    {'error': 'Невозможно отменить заказ в текущем статусе'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            order.status = 'canceled'
+            order.cancel_reason = reason
+            order.canceled_by = user  # Устанавливаем, кто отменил заказ
+            order.save()
+            serializer = self.get_serializer(order)
+            return Response(serializer.data)
+        else:
+            return Response(
+                {'error': 'Вы не можете отменить этот заказ'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def confirm(self, request, pk=None):
         order = get_object_or_404(Order, pk=pk)
         seller = request.user
@@ -150,35 +204,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         order.status = 'confirmed'
         order.save()
-        return Response({'status': 'Заказ подтвержден'})
-
-    # Новый метод cancel
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def cancel(self, request, pk=None):
-        order = get_object_or_404(Order, pk=pk)
-        seller = request.user
-        reason = request.data.get('reason', '')  # Получаем причину из запроса
-
-        # Проверка прав продавца
-        if not order.items.filter(product__farmer=seller).exists():
-            return Response(
-                {'error': 'Вы не можете отменить этот заказ'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        # Проверка статуса заказа
-        if order.status != 'processing':
-            return Response(
-                {'error': 'Невозможно отменить заказ в текущем статусе'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Обновляем статус и сохраняем причину
-        order.status = 'canceled'
-        order.cancel_reason = reason
-        order.save()
-
-        return Response({'status': 'Заказ отменен', 'reason': reason})
+        serializer = self.get_serializer(order)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save()
@@ -188,3 +215,17 @@ class MyProductsList(generics.ListAPIView):
 
     def get_queryset(self):
         return Product.objects.filter(farmer=self.request.user).select_related('category')  
+
+class UserProductsList(generics.ListAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        user_id = self.kwargs['user_id']
+        return Product.objects.filter(farmer_id=user_id)
+
+    # Добавьте контекст запроса для формирования полных URL
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context

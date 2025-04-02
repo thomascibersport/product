@@ -239,7 +239,9 @@ const OrdersPage = () => {
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             Продавец:{" "}
-                            {item.product?.farmer_name || "Неизвестен"}
+                            {item.product?.farmer
+                              ? `${item.product.farmer.first_name} ${item.product.farmer.last_name}`
+                              : "Неизвестен"}
                           </p>
                           {item.product && !item.product.delivery_available && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">

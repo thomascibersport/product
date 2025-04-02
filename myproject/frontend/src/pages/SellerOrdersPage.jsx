@@ -77,9 +77,9 @@ const SellerOrdersPage = () => {
       navigate("/login");
       return;
     }
-  
+
     if (!window.confirm("Вы уверены, что хотите подтвердить заказ?")) return;
-  
+
     try {
       const response = await axios.post(
         `http://localhost:8000/api/orders/${orderId}/confirm/`,
@@ -103,29 +103,27 @@ const SellerOrdersPage = () => {
       navigate("/login");
       return;
     }
-  
+
     try {
       const response = await axios.post(
         `http://localhost:8000/api/orders/${orderId}/cancel/`,
         { reason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-  
-      // Обновляем состояние orders, добавляя статус и причину отмены
+      const updatedOrder = response.data; // Получаем полный обновленный заказ
       const updatedOrders = orders.map((order) =>
-        order.id === orderId
-          ? { ...order, status: "canceled", cancel_reason: reason }
-          : order
+        order.id === orderId ? updatedOrder : order
       );
       setOrders(updatedOrders);
-      setShowCancelForm(null); // Скрываем форму
-      setCancelReason(""); // Очищаем поле ввода причины
+      setShowCancelForm(null);
+      setCancelReason("");
       alert("Заказ успешно отменен");
     } catch (error) {
       alert("Ошибка при отмене заказа");
       console.error("Ошибка:", error);
     }
   };
+
 
   const formatDate = (dateString) =>
     moment(dateString).format("DD.MM.YYYY HH:mm");
@@ -225,9 +223,15 @@ const SellerOrdersPage = () => {
                         {order.status_display}
                       </span>
                     </div>
-                    {order.status === "canceled" && order.cancel_reason && (
+                    {order.status === "canceled" && order.canceled_by && (
                       <p className="text-red-500 mt-2">
-                        Причина отмены: {order.cancel_reason}
+                        Отменен{" "}
+                        {order.canceled_by_role === "buyer"
+                          ? "покупателем "
+                          : "продавцом "}
+                        {order.canceled_by.first_name}{" "}
+                        {order.canceled_by.last_name}
+                        {order.cancel_reason && `: ${order.cancel_reason}`}
                       </p>
                     )}
                   </div>

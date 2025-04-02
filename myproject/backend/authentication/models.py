@@ -19,6 +19,7 @@ class CustomUser(AbstractUser):
     last_name = models.CharField(max_length=150)
     middle_name = models.CharField(max_length=150, blank=True, null=True)
     phone = models.CharField(max_length=15, blank=True, null=True, verbose_name="Телефон")
+    show_phone = models.BooleanField(default=True, verbose_name="Показывать телефон другим пользователям")
     agree_to_terms = models.BooleanField(default=False)
     
     groups = models.ManyToManyField(
@@ -31,3 +32,5 @@ class CustomUser(AbstractUser):
         related_name="customuser_permissions_set",
         blank=True,
     )
+    def __str__(self):
+            return self.username

@@ -10,14 +10,18 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
-
+class FarmerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'phone']
 class ProductShortSerializer(serializers.ModelSerializer):
     delivery_available = serializers.BooleanField()
     seller_address = serializers.CharField()
+    farmer = FarmerSerializer(read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'price', 'delivery_available', 'seller_address']
+        fields = ['id', 'name', 'price', 'delivery_available', 'seller_address', 'farmer']
 
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
@@ -120,7 +124,8 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_display = serializers.SerializerMethodField()
     user = UserSerializer(read_only=True)
-    # Добавляем поле cancel_reason
+    canceled_by = UserSerializer(read_only=True)
+    canceled_by_role = serializers.SerializerMethodField()
     cancel_reason = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -128,13 +133,21 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'delivery_type', 'payment_method', 'delivery_address', 
             'pickup_address', 'total_amount', 'created_at', 'items', 'status', 
-            'status_display', 'cancel_reason'
+            'status_display', 'canceled_by', 'canceled_by_role', 'cancel_reason'
         ]
-        read_only_fields = ['user', 'total_amount']
+        read_only_fields = ['user', 'total_amount', 'canceled_by']
 
     def get_status_display(self, obj):
         return dict(Order.STATUS_CHOICES).get(obj.status, "Неизвестный статус")
-    # Добавляем поле для получения данных от клиента
+
+    def get_canceled_by_role(self, obj):
+        if obj.canceled_by:
+            if obj.canceled_by == obj.user:
+                return 'buyer'
+            else:
+                return 'seller'
+        return None
+
     def to_internal_value(self, data):
         internal_data = super().to_internal_value(data)
         internal_data['items'] = data.get('items', [])
@@ -188,3 +201,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 product.save()
 
         return order
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User  
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone']

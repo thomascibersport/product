@@ -84,8 +84,16 @@ class Order(models.Model):
     )
     delivery_address = models.TextField(null=True, blank=True)
     pickup_address = models.TextField(null=True, blank=True)
-    # Новое поле для причины отмены
     cancel_reason = models.TextField(null=True, blank=True, verbose_name="Причина отмены")
+    # Новое поле для отслеживания, кто отменил заказ
+    canceled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='canceled_orders',
+        verbose_name="Отменен пользователем"
+    )
 
     def __str__(self):
         return f"Order #{self.id} - {self.user.email}"
