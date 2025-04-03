@@ -117,9 +117,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
             }
         return None
 class UserSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        fields = ["id", "username", "email", "avatar", "first_name", "last_name", 
+                 "middle_name", "phone", "show_phone"]
+        extra_kwargs = {
+            'show_phone': {'required': False}
+        }
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_display = serializers.SerializerMethodField()
@@ -201,7 +207,11 @@ class OrderSerializer(serializers.ModelSerializer):
                 product.save()
 
         return order
+# serializers.py
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User  
         fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone']
+        extra_kwargs = {
+            'show_phone': {'required': False, 'allow_null': True}
+        }

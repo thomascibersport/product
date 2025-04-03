@@ -7,13 +7,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "avatar", "first_name", "last_name", "middle_name", "phone"]
+        fields = ["id", "username", "email", "avatar", "first_name", "last_name", "middle_name", "phone", "show_phone"]
 
     def get_avatar(self, obj):
         if obj.avatar:
             return self.context['request'].build_absolute_uri(obj.avatar.url)
-        return None
-
         return None
 
 class RegisterSerializer(serializers.ModelSerializer):

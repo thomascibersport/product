@@ -32,18 +32,19 @@ class UpdateProfileView(generics.UpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_object(), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 class UserProfileView(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     lookup_field = 'id'
     permission_classes = [AllowAny]
 
-class UpdateProfileView(generics.UpdateAPIView):
-    serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
 class ProductCreate(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer

@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.parsers import MultiPartParser, FormParser
-from .serializers import UserSerializer
+
 
 import requests
 from django.http import JsonResponse, HttpResponseBadRequest
@@ -20,7 +20,7 @@ from django.urls import reverse
 from django.contrib.auth import authenticate, login as django_login
 from rest_framework import status
 
-
+from authentication.serializers import UserSerializer as AuthUserSerializer
 
 User = get_user_model()
 class CustomLoginView(APIView):
@@ -54,7 +54,7 @@ class CurrentUserView(APIView):
 
     def get(self, request):
         user = request.user
-        serializer = UserSerializer(user, context={'request': request})
+        serializer = AuthUserSerializer(user, context={'request': request})
         return Response(serializer.data)
 
 
@@ -85,7 +85,7 @@ class UpdateProfileView(APIView):
         user.last_name = data.get("last_name", user.last_name)
         user.middle_name = data.get("middle_name", user.middle_name)
         user.phone = data.get("phone", user.phone)
-
+        user.show_phone = data.get("show_phone", user.show_phone)
         user.save()
 
         return Response({

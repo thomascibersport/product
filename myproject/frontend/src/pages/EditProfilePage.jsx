@@ -29,7 +29,9 @@ function EditProfilePage() {
   const [completedCrop, setCompletedCrop] = useState(null);
   const imageRef = useRef(null);
   const [croppedBlob, setCroppedBlob] = useState(null);
-  const [croppedPreview, setCroppedPreview] = useState("/media/default-avatar.png");
+  const [croppedPreview, setCroppedPreview] = useState(
+    "/media/default-avatar.png"
+  );
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState("/media/default-avatar.png");
   const [username, setUsername] = useState("");
@@ -109,7 +111,11 @@ function EditProfilePage() {
       return;
     }
     try {
-      const blob = await getCroppedImg(imageRef.current, completedCrop, "avatar.jpg");
+      const blob = await getCroppedImg(
+        imageRef.current,
+        completedCrop,
+        "avatar.jpg"
+      );
       setCroppedBlob(blob);
       setCroppedPreview(URL.createObjectURL(blob));
       alert("Изображение готово к загрузке!");
@@ -123,22 +129,20 @@ function EditProfilePage() {
     const fetchUserData = async () => {
       try {
         const token = getToken();
+        const response = await getUser(token);
         if (!token) {
           navigate("/login");
           return;
         }
-        const response = await axios.put(`http://localhost:8000/api/users/update/`, profileData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        console.log("Данные с сервера:", response.data);
+        console.log("show_phone с сервера:", response.data.show_phone);
         setUsername(response.data.username);
         setEmail(response.data.email);
         setFirstName(response.data.first_name);
         setLastName(response.data.last_name);
         setMiddleName(response.data.middle_name);
         setPhone(response.data.phone);
-        setShowPhone(response.data.show_phone ?? true); // Загружаем значение или true по умолчанию
+        setShowPhone(response.data.show_phone); // Теперь будет получать корректное значение
         setPreview(response.data.avatar || "/media/default-avatar.png");
         setLoading(false);
       } catch (err) {
@@ -179,14 +183,26 @@ function EditProfilePage() {
         last_name: lastName,
         middle_name: middleName,
         phone,
-        show_phone: showPhone, // Добавляем значение чекбокса в данные
+        show_phone: showPhone,
       };
-      const response = await updateProfile(token, profileData);
-      console.log("Ответ обновления профиля:", response);
+      console.log("Отправляемые данные:", profileData);
+      await updateProfile(token, profileData);
       alert("Профиль успешно обновлён!");
+      const fetchUserData = async () => {
+        const response = await getUser(token);
+        setUsername(response.data.username);
+        setEmail(response.data.email);
+        setFirstName(response.data.first_name);
+        setLastName(response.data.last_name);
+        setMiddleName(response.data.middle_name);
+        setPhone(response.data.phone);
+        setShowPhone(response.data.show_phone); // Используем напрямую, без !== false
+        setPreview(response.data.avatar || "/media/default-avatar.png");
+      };
+      await fetchUserData();
     } catch (err) {
       console.error("Ошибка обновления профиля:", err);
-      setError("Не удалось обновить профиль.");
+      alert("Не удалось обновить профиль: " + err.message);
     }
   };
 
@@ -216,7 +232,9 @@ function EditProfilePage() {
       setConfirmNewPassword("");
     } catch (err) {
       console.error("Ошибка смены пароля:", err);
-      alert("Не удалось изменить пароль. Проверьте правильность ввода старого пароля.");
+      alert(
+        "Не удалось изменить пароль. Проверьте правильность ввода старого пароля."
+      );
     }
   };
 
@@ -255,7 +273,9 @@ function EditProfilePage() {
                     className="w-full h-full object-cover object-center border-4 border-blue-100 dark:border-blue-900/50 shadow-lg scale-105 transition-transform group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                    <span className="text-white text-sm font-medium">Изменить</span>
+                    <span className="text-white text-sm font-medium">
+                      Изменить
+                    </span>
                   </div>
                   <input
                     type="file"
@@ -281,7 +301,8 @@ function EditProfilePage() {
                         alt="Crop source"
                         className="max-h-96 w-full object-contain"
                         onLoad={(e) => {
-                          const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
+                          const { naturalWidth: nw, naturalHeight: nh } =
+                            e.currentTarget;
                           const minSize = Math.min(nw, nh, 200);
                           setCrop({
                             unit: "px",
@@ -418,7 +439,10 @@ function EditProfilePage() {
               <input
                 type="checkbox"
                 checked={showPhone}
-                onChange={(e) => setShowPhone(e.target.checked)}
+                onChange={(e) => {
+                  setShowPhone(e.target.checked);
+                  console.log("showPhone изменён:", e.target.checked);
+                }}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label className="text-sm text-gray-700 dark:text-gray-300">
@@ -489,7 +513,9 @@ function EditProfilePage() {
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-12"
                   />
                   <button
-                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                    onClick={() =>
+                      setShowConfirmNewPassword(!showConfirmNewPassword)
+                    }
                     className="absolute right-3 top-3 text-gray-500 dark:text-gray-400 hover:text-blue-500"
                   >
                     {showConfirmNewPassword ? "👁️" : "👁️‍🗨️"}
