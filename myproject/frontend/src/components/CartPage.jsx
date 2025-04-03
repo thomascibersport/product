@@ -183,10 +183,7 @@ const CartPage = () => {
         delivery_type: deliveryType,
         payment_method: paymentType,
         delivery_address: deliveryType === "delivery" ? deliveryAddress : null,
-        pickup_address:
-          deliveryType === "pickup"
-            ? "ул. Примерная, 123 (Пункт выдачи)"
-            : null,
+        pickup_address: deliveryType === "pickup" ? "ул. Примерная, 123 (Пункт выдачи)" : null,
         items: cartItems.map((item) => ({
           product: item.product.id,
           quantity: item.quantity,

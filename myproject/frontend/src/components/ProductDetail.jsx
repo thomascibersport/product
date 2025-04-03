@@ -19,7 +19,9 @@ const ProductDetail = () => {
   // Загрузка данных продукта
   useEffect(() => {
     const token = Cookies.get("token");
-    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+    const config = token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : {};
 
     axios
       .get(`http://localhost:8000/api/products/${id}/`, config)
@@ -171,7 +173,7 @@ const ProductDetail = () => {
                   Продавец:{" "}
                   <Link
                     to={`/users/${displayProduct.farmer}/`}
-                    className="text-blue-500 hover:underline"
+                    className="font-medium text-gray-800 dark:text-gray-200 hover:underline"
                   >
                     {displayProduct.farmer_name}
                   </Link>

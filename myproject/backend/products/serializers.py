@@ -13,7 +13,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class FarmerSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'phone']
+        fields = ['id', 'first_name', 'last_name', 'phone'] 
 class ProductShortSerializer(serializers.ModelSerializer):
     delivery_available = serializers.BooleanField()
     seller_address = serializers.CharField()
@@ -91,29 +91,26 @@ class CartItemDetailSerializer(serializers.ModelSerializer):
 # serializers.py
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = ProductShortSerializer(read_only=True)
-    price = serializers.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        read_only=True
-    )
-    delivery_available = serializers.BooleanField(
-        source='product.delivery_available', 
-        read_only=True
-    )
-    farmer = serializers.SerializerMethodField()  # Требует метод get_farmer
+    product = serializers.SerializerMethodField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    delivery_available = serializers.BooleanField(source='product.delivery_available', read_only=True)
+    farmer = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
         fields = ['product', 'quantity', 'price', 'delivery_available', 'farmer']
 
-    # Добавляем отсутствующий метод
+    def get_product(self, obj):
+        if obj.product:
+            return ProductShortSerializer(obj.product).data
+        return None  # Если товар отсутствует, возвращаем null
+
     def get_farmer(self, obj):
-        """Получаем данные фермера из связанного продукта"""
         if obj.product and obj.product.farmer:
             return {
-                'address': obj.product.farmer.address,
-                'phone': obj.product.farmer.phone
+                'id': obj.product.farmer.id,
+                'address': obj.product.farmer.address or "Не указан",
+                'phone': obj.product.farmer.phone or "Не указан"
             }
         return None
 class UserSerializer(serializers.ModelSerializer):
@@ -122,10 +119,18 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email", "avatar", "first_name", "last_name", 
-                 "middle_name", "phone", "show_phone"]
+                  "middle_name", "phone", "show_phone"]
         extra_kwargs = {
             'show_phone': {'required': False}
         }
+
+    def get_avatar(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_display = serializers.SerializerMethodField()
@@ -139,7 +144,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'delivery_type', 'payment_method', 'delivery_address', 
             'pickup_address', 'total_amount', 'created_at', 'items', 'status', 
-            'status_display', 'canceled_by', 'canceled_by_role', 'cancel_reason'
+            'status_display', 'canceled_by', 'canceled_by_role', 'cancel_reason'  # Removed 'total'
         ]
         read_only_fields = ['user', 'total_amount', 'canceled_by']
 
@@ -207,7 +212,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 product.save()
 
         return order
-# serializers.py
+
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User  

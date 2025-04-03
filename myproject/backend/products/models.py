@@ -82,8 +82,8 @@ class Order(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(0.01)]
     )
-    delivery_address = models.TextField(null=True, blank=True)
-    pickup_address = models.TextField(null=True, blank=True)
+    delivery_address = models.TextField(blank=True, null=True)
+    pickup_address = models.TextField(blank=True, null=True)
     cancel_reason = models.TextField(null=True, blank=True, verbose_name="Причина отмены")
     # Новое поле для отслеживания, кто отменил заказ
     canceled_by = models.ForeignKey(

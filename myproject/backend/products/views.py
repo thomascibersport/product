@@ -72,14 +72,16 @@ class CategoryList(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-class ProductDetail(generics.RetrieveDestroyAPIView):
+class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [AllowAny]
+
     def perform_update(self, serializer):
-            if serializer.instance.seller != self.request.user:  # Предполагается поле seller
-                raise PermissionDenied("Вы не можете редактировать этот продукт")
-            serializer.save()
+        if serializer.instance.farmer != self.request.user:
+            raise PermissionDenied("Вы не можете редактировать этот продукт")
+        serializer.save()
+
     def delete(self, request, *args, **kwargs):
         try:
             # Проверка аутентификации
@@ -160,14 +162,24 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.action == 'seller_orders':
+            return Order.objects.filter(items__product__farmer=self.request.user).distinct()
         return Order.objects.filter(user=self.request.user)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def seller_orders(self, request):
-        seller = request.user
-        orders = Order.objects.filter(items__product__farmer=seller).distinct()
-        serializer = self.get_serializer(orders, many=True)
-        return Response(serializer.data)
+        try:
+            seller = request.user
+            orders = Order.objects.filter(
+                items__product__farmer=seller
+            ).distinct().prefetch_related('items__product')
+            serializer = self.get_serializer(orders, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def cancel(self, request, pk=None):

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/ru";
 import "../index.css";
@@ -239,9 +239,16 @@ const OrdersPage = () => {
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             Продавец:{" "}
-                            {item.product?.farmer
-                              ? `${item.product.farmer.first_name} ${item.product.farmer.last_name}`
-                              : "Неизвестен"}
+                            {item.product?.farmer?.id ? (
+                              <Link
+                                to={`/users/${item.product.farmer.id}/`}
+                                className="font-medium text-gray-800 dark:text-gray-200 hover:underline"
+                              >
+                                {`${item.product.farmer.first_name} ${item.product.farmer.last_name}`.trim()}
+                              </Link>
+                            ) : (
+                              "Неизвестен"
+                            )}
                           </p>
                           {item.product && !item.product.delivery_available && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
