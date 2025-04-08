@@ -9,10 +9,11 @@ import {
 import { Button } from "./ui/button";
 import { getUser } from "../api/auth";
 import { getToken, logout as clearToken } from "../utils/auth";
-import { AuthContext } from "../AuthContext"; // Импортируем контекст
+import { AuthContext } from "../AuthContext";
+import axios from "axios";
 
 function Header() {
-  const { avatar, setAvatar } = useContext(AuthContext); // Используем контекст
+  const { avatar, setAvatar} = useContext(AuthContext);
   const [username, setUsername] = useState("Гость");
   const [user, setUser] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -20,6 +21,7 @@ function Header() {
     return savedTheme ? savedTheme === "dark" : false;
   });
   const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
+  const [hasMessages, setHasMessages] = useState(false); // Состояние для проверки сообщений
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,22 +40,30 @@ function Header() {
         const response = await getUser(token);
         setUser(response.data);
         setUsername(response.data.username);
-        setAvatar(response.data.avatar || "/media/default-avatar.png"); // Устанавливаем аватар из данных пользователя
+        setAvatar(response.data.avatar || "/media/default-avatar.png");
         setIsAuthenticated(true);
+
+        // Проверка наличия сообщений
+        const messagesResponse = await axios.get("http://localhost:8000/api/messages/has-messages/", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setHasMessages(messagesResponse.data.has_messages);
       } catch (error) {
-        console.error("Ошибка загрузки данных пользователя:", error);
+        console.error("Ошибка загрузки данных пользователя или сообщений:", error);
         handleLogout();
       }
     };
 
     fetchUserData();
-  }, [navigate, setAvatar]); // Добавляем setAvatar в зависимости
+  }, [navigate, setAvatar]);
 
   const handleLogout = () => {
     clearToken();
     setIsAuthenticated(false);
     setUsername("Гость");
-    setAvatar("/media/default-avatar.png"); // Сбрасываем аватар при выходе
+    setAvatar("/media/default-avatar.png");
     navigate("/login");
   };
 
@@ -86,6 +96,11 @@ function Header() {
             <Link to="/seller-orders" className="hover:text-gray-300">
               Заказы на мои товары
             </Link>
+            {hasMessages && (
+              <Link to="/messages" className="hover:text-gray-300">
+                Сообщения
+              </Link>
+            )}
           </nav>
         )}
 
@@ -96,7 +111,7 @@ function Header() {
               className="flex items-center gap-2 text-white hover:bg-gray-700"
             >
               <img
-                src={avatar} // Используем аватар из контекста
+                src={avatar}
                 alt="avatar"
                 className="w-10 h-10 rounded-full object-cover"
               />

@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
+import Cookies from "js-cookie";
 import Header from "../components/Header";
+import { FaEnvelope } from "react-icons/fa";
+import Modal from "react-modal";
+import { AuthContext } from "../AuthContext"; // Import AuthContext
+
+Modal.setAppElement("#root");
 
 const UserProfile = () => {
   const { id } = useParams();
@@ -9,6 +15,9 @@ const UserProfile = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const { setHasMessages } = useContext(AuthContext); // Access setHasMessages from context
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -31,6 +40,52 @@ const UserProfile = () => {
     };
     fetchUserProfile();
   }, [id]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+
+    const token = Cookies.get("token");
+
+    if (!token) {
+      alert("Пожалуйста, войдите в систему.");
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        "http://localhost:8000/api/messages/send/",
+        {
+          recipient: id,
+          content: message,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setMessage("");
+      setIsModalOpen(false);
+      alert("Сообщение отправлено!");
+      setHasMessages(true); // Update context to indicate new messages
+
+      // Optional: Fetch updated message status (can be optimized with context)
+      const messagesResponse = await axios.get(
+        "http://localhost:8000/api/messages/has-messages/",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      // Remove this reload in production; rely on context instead
+      // window.location.reload();
+    } catch (err) {
+      console.error("Ошибка при отправке сообщения:", err);
+      alert("Не удалось отправить сообщение: " + err.message);
+    }
+  };
 
   if (loading)
     return (
@@ -73,6 +128,12 @@ const UserProfile = () => {
             <h1 className="text-4xl font-bold text-gray-800 dark:text-white text-center">
               {user.first_name} {user.last_name}
             </h1>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="mt-4 text-blue-500 hover:text-blue-600"
+            >
+              <FaEnvelope size={24} />
+            </button>
           </div>
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
@@ -80,7 +141,7 @@ const UserProfile = () => {
             </p>
             <p className="text-gray-600 dark:text-gray-400">
               <strong>Телефон:</strong>{" "}
-              {user.show_phone ? (user.phone || "Не указан") : "Скрыт"}
+              {user.show_phone ? user.phone || "Не указан" : "Скрыт"}
             </p>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-8 mb-4">
@@ -128,6 +189,40 @@ const UserProfile = () => {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        onRequestClose={() => setIsModalOpen(false)}
+        className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto mt-20"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+      >
+        <h2 className="text-2xl font-bold mb-4">Отправить сообщение</h2>
+        <form onSubmit={handleSendMessage}>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="w-full p-2 border rounded mb-4"
+            rows="4"
+            placeholder="Введите ваше сообщение..."
+            required
+          />
+          <div className="flex justify-end space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Отправить
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

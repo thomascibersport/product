@@ -13,7 +13,8 @@ from .serializers import (
     CartItemSerializer, 
     CartItemDetailSerializer,
     OrderSerializer,
-    UserProfileSerializer
+    UserProfileSerializer,
+    UserSerializer
 )
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
@@ -21,9 +22,15 @@ from django.shortcuts import get_object_or_404
 from .serializers import OrderSerializer
 from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
-from .serializers import UserProfileSerializer
-
-
+from rest_framework.decorators import api_view, permission_classes
+from .models import Message
+from .serializers import MessageSerializer
+from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.serializers import SerializerMethodField
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -242,3 +249,54 @@ class UserProductsList(generics.ListAPIView):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_message(request):
+    # Добавляем проверку верификации пользователя
+    if not request.user.is_authenticated:
+        return Response(
+            {"detail": "Authentication credentials were not provided."},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    serializer = MessageSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(sender=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def has_messages(request):
+    user = request.user
+    # Проверяем, есть ли сообщения, где пользователь — отправитель или получатель
+    has_messages = Message.objects.filter(Q(sender=user) | Q(recipient=user)).exists()
+    return Response({'has_messages': has_messages})
+class ChatListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        sent_messages = Message.objects.filter(sender=user).values('recipient').distinct()
+        received_messages = Message.objects.filter(recipient=user).values('sender').distinct()
+
+        chat_partners = set()
+        for msg in sent_messages:
+            chat_partners.add(msg['recipient'])
+        for msg in received_messages:
+            chat_partners.add(msg['sender'])
+
+        partners = User.objects.filter(id__in=chat_partners)
+        serializer = UserSerializer(partners, many=True, context={'request': request})
+        return Response(serializer.data)
+class ChatMessagesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        user = request.user
+        partner = get_object_or_404(User, pk=pk)
+        messages = Message.objects.filter(
+            (Q(sender=user) & Q(recipient=partner)) |
+            (Q(sender=partner) & Q(recipient=user))
+        ).order_by('timestamp')
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)

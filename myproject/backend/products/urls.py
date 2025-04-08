@@ -9,10 +9,16 @@ from .views import (
     MyProductsList,
     UserProductsList,
     UserProfileView,
-    UpdateProfileView  
+    UpdateProfileView,
+    send_message,
+    has_messages,
+    ChatListView,
+    ChatMessagesView  
 )
 from django.conf import settings
 from django.conf.urls.static import static
+from authentication.views import CurrentUserView
+
 urlpatterns = [
     path('products/create/', ProductCreate.as_view(), name='product-create'),
     path('products/', ProductList.as_view(), name='product-list'),
@@ -40,4 +46,9 @@ urlpatterns = [
     path('users/<int:id>/', UserProfileView.as_view(), name='user-profile'),  
     path('users/<int:user_id>/products/', UserProductsList.as_view(), name='user-products'),
     path('users/update/', UpdateProfileView.as_view(), name='update-profile'),
+    path("messages/send/", send_message, name="send_message"),
+    path("messages/has-messages/", has_messages, name="has_messages"),
+    path("messages/chats/", ChatListView.as_view(), name="chat_list"),
+    path("messages/chat/<int:pk>/", ChatMessagesView.as_view(), name="chat_messages"),
+    path('users/me/', CurrentUserView.as_view(), name='current-user'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

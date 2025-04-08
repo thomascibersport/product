@@ -4,6 +4,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.contrib.auth import get_user_model
+from .models import Message
 User = get_user_model()
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -118,8 +119,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "avatar", "first_name", "last_name", 
-                  "middle_name", "phone", "show_phone"]
+        fields = ["id", "username", "email", "avatar", "first_name", "last_name", "middle_name", "phone", "show_phone"]
         extra_kwargs = {
             'show_phone': {'required': False}
         }
@@ -220,3 +220,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'show_phone': {'required': False, 'allow_null': True}
         }
+class MessageSerializer(serializers.ModelSerializer):
+    recipient = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        error_messages={
+            'does_not_exist': 'Пользователь-получатель не найден.'
+        }
+    )
+
+    class Meta:
+        model = Message
+        fields = ["id", "recipient", "content", "timestamp"]
+        read_only_fields = ["sender", "timestamp"]

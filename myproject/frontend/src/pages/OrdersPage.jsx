@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/ru";
 import "../index.css";
@@ -75,14 +75,18 @@ const OrdersPage = () => {
     }
     if (!window.confirm("Вы уверены, что хотите отменить заказ?")) return;
 
+    const reason = "Вы отменили заказ"; // Фиксированная причина
+
     try {
       await axios.post(
         `http://localhost:8000/api/orders/${orderId}/cancel/`,
-        {},
+        { reason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const updatedOrders = orders.map((order) =>
-        order.id === orderId ? { ...order, status: "canceled" } : order
+        order.id === orderId
+          ? { ...order, status: "canceled", cancel_reason: reason }
+          : order
       );
       setOrders(updatedOrders);
       alert("Заказ успешно отменен");
@@ -200,6 +204,11 @@ const OrdersPage = () => {
                           }[order.status]}
                       </span>
                     </div>
+                    {order.status === "canceled" && order.cancel_reason && (
+                      <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+                        Причина отмены: {order.cancel_reason}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mb-4">

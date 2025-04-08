@@ -7,7 +7,10 @@ export const register = async (userData) => {
 };
 
 export const login = async (credentials) => {
-  return await axios.post(`${API_URL}login/`, credentials);
+  const response = await axios.post(`${API_URL}login/`, credentials);
+  const token = response.data.access; // Предполагается, что сервер возвращает access-токен
+  Cookies.set("token", token, { secure: true, sameSite: "Strict" });
+  return response;
 };
 
 export const getUser = async (token) => {

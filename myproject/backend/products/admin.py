@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import Product, Category, CartItem, Order, OrderItem
+from .models import Product, Category, CartItem, Order, OrderItem, Message
 
+# Существующие классы
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'farmer', 'price', 'created_at', 'delivery_available')
     list_filter = ('category', 'farmer', 'delivery_available')
@@ -23,7 +24,6 @@ class OrderItemInline(admin.TabularInline):
     extra = 0
     fields = ('product', 'quantity', 'price')
     readonly_fields = ('product', 'quantity', 'price')
-
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
@@ -59,6 +59,20 @@ class OrderAdmin(admin.ModelAdmin):
     def get_address(self, obj):
         return obj.delivery_address if obj.delivery_type == 'delivery' else obj.pickup_address
     get_address.short_description = 'Адрес'
+
+# Новый класс для Message
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'recipient', 'timestamp', 'content_preview')
+    list_filter = ('sender', 'recipient', 'timestamp')
+    search_fields = ('sender__username', 'recipient__username', 'content')
+    readonly_fields = ('timestamp',)
+
+    def content_preview(self, obj):
+        return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+    content_preview.short_description = 'Content Preview'
+
+# Регистрация моделей
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(CartItem, CartItemAdmin)
+admin.site.register(Message, MessageAdmin)
