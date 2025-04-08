@@ -31,6 +31,9 @@ from rest_framework.serializers import SerializerMethodField
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.db import models
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -296,7 +299,55 @@ class ChatMessagesView(APIView):
         partner = get_object_or_404(User, pk=pk)
         messages = Message.objects.filter(
             (Q(sender=user) & Q(recipient=partner)) |
-            (Q(sender=partner) & Q(recipient=user))
+            (Q(sender=partner) & Q(recipient=user)),
+            is_deleted=False  # Фильтруем удаленные сообщения
         ).order_by('timestamp')
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
+class UploadFileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if 'file' not in request.FILES:
+            return Response({'error': 'Файл не найден'}, status=status.HTTP_400_BAD_REQUEST)
+
+        file = request.FILES['file']
+        file_name = default_storage.save(file.name, ContentFile(file.read()))
+        file_url = default_storage.url(file_name)
+
+        return Response({'url': file_url}, status=status.HTTP_201_CREATED)
+class MessageDetailView(APIView):
+    def patch(self, request, pk):
+        message = get_object_or_404(Message, pk=pk)
+        if message.sender != request.user:
+            return Response({"error": "Вы не можете редактировать это сообщение"}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        serializer = MessageSerializer(message, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        message = get_object_or_404(Message, pk=pk)
+        if message.sender != request.user:
+            return Response({"error": "Вы не можете удалить это сообщение"}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        message.is_deleted = True
+        message.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class MessageDeleteView(APIView):
+    def delete(self, request, pk):
+        message = get_object_or_404(Message, pk=pk)
+        if message.sender != request.user:
+            return Response({"error": "Вы не можете удалить это сообщение"}, 
+                            status=status.HTTP_403_FORBIDDEN)
+        message.is_deleted = True
+        message.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+class MessageListView(APIView):
+    def get(self, request):
+        messages = Message.objects.filter(is_deleted=False)
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)

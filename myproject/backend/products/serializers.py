@@ -221,6 +221,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'show_phone': {'required': False, 'allow_null': True}
         }
 class MessageSerializer(serializers.ModelSerializer):
+    sender = serializers.PrimaryKeyRelatedField(read_only=True)
     recipient = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         error_messages={
@@ -230,5 +231,5 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ["id", "recipient", "content", "timestamp"]
+        fields = ["id", "sender", "recipient", "content", "timestamp"]
         read_only_fields = ["sender", "timestamp"]

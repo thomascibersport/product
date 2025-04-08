@@ -38,3 +38,39 @@ code {
 .animate-wave-3 {
   animation: wave-group 4s cubic-bezier(0.4, 0, 0.2, 1) infinite 1,32s;
 }
+
+
+
+
+
+.message {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Стилизация скроллбара */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px; /* Ширина скроллбара */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* Прозрачный фон трека */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #888; /* Цвет ползунка */
+  border-radius: 4px; /* Закругленные углы */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555; /* Цвет при наведении */
+}

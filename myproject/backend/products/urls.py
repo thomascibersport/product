@@ -13,7 +13,9 @@ from .views import (
     send_message,
     has_messages,
     ChatListView,
-    ChatMessagesView  
+    ChatMessagesView,
+    UploadFileView,
+    MessageDetailView, MessageDeleteView
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -51,4 +53,7 @@ urlpatterns = [
     path("messages/chats/", ChatListView.as_view(), name="chat_list"),
     path("messages/chat/<int:pk>/", ChatMessagesView.as_view(), name="chat_messages"),
     path('users/me/', CurrentUserView.as_view(), name='current-user'),
+    path('upload/', UploadFileView.as_view(), name='upload-file'),
+    path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
+    path('messages/<int:pk>/delete/', MessageDeleteView.as_view(), name='message-delete'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
