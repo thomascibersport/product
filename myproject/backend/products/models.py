@@ -120,3 +120,15 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender} to {self.recipient}"
+class Review(models.Model):
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='authored_reviews', on_delete=models.CASCADE)
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_reviews', on_delete=models.CASCADE)
+    content = models.TextField()
+    rating = models.PositiveIntegerField()  # Оценка от 1 до 5
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('author', 'recipient')  # Один автор может оставить только один отзыв одному получателю
+
+    def __str__(self):
+        return f"Review by {self.author} for {self.recipient}"

@@ -5,7 +5,7 @@ import Cookies from "js-cookie";
 import Header from "../components/Header";
 import { FaEnvelope } from "react-icons/fa";
 import Modal from "react-modal";
-import { AuthContext } from "../AuthContext"; // Import AuthContext
+import { AuthContext } from "../AuthContext";
 
 Modal.setAppElement("#root");
 
@@ -13,11 +13,17 @@ const UserProfile = () => {
   const { id } = useParams();
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState("");
-  const { setHasMessages } = useContext(AuthContext); // Access setHasMessages from context
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewContent, setReviewContent] = useState("");
+  const [reviewRating, setReviewRating] = useState(0);
+  const { setHasMessages } = useContext(AuthContext);
+
+  const token = Cookies.get("token");
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -32,6 +38,19 @@ const UserProfile = () => {
         );
         setProducts(productsResponse.data);
 
+        if (token) {
+          const reviewsResponse = await axios.get(
+            `http://localhost:8000/api/users/${id}/reviews/`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          setReviews(reviewsResponse.data);
+        } else {
+          setReviews([]);
+          console.log("Токен отсутствует, отзывы недоступны");
+        }
+
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -43,47 +62,49 @@ const UserProfile = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-
-    const token = Cookies.get("token");
-
     if (!token) {
       alert("Пожалуйста, войдите в систему.");
       return;
     }
-
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/messages/send/",
-        {
-          recipient: id,
-          content: message,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `http://localhost:8000/api/users/${id}/reviews/`,
+        { content: reviewContent, rating: reviewRating },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       setMessage("");
       setIsModalOpen(false);
       alert("Сообщение отправлено!");
-      setHasMessages(true); // Update context to indicate new messages
-
-      // Optional: Fetch updated message status (can be optimized with context)
-      const messagesResponse = await axios.get(
-        "http://localhost:8000/api/messages/has-messages/",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      // Remove this reload in production; rely on context instead
-      // window.location.reload();
+      setHasMessages(true);
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);
       alert("Не удалось отправить сообщение: " + err.message);
+    }
+  };
+
+  const handleSendReview = async (e) => {
+    e.preventDefault();
+    if (!token) {
+      alert("Пожалуйста, войдите в систему.");
+      return;
+    }
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/users/${id}/reviews/`,
+        { content: reviewContent, rating: reviewRating, recipient: id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReviews([...reviews, response.data]);
+      setReviewContent("");
+      setReviewRating(0);
+      setIsReviewModalOpen(false);
+      alert("Отзыв отправлен!");
+    } catch (err) {
+      if (err.response?.status === 400) {
+        alert("Вы уже оставили отзыв этому пользователю.");
+      } else {
+        alert("Не удалось отправить отзыв: " + err.message);
+      }
     }
   };
 
@@ -128,12 +149,14 @@ const UserProfile = () => {
             <h1 className="text-4xl font-bold text-gray-800 dark:text-white text-center">
               {user.first_name} {user.last_name}
             </h1>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="mt-4 text-blue-500 hover:text-blue-600"
-            >
-              <FaEnvelope size={24} />
-            </button>
+            {token && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-4 text-blue-500 hover:text-blue-600"
+              >
+                <FaEnvelope size={24} />
+              </button>
+            )}
           </div>
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
@@ -187,9 +210,71 @@ const UserProfile = () => {
               У этого продавца пока нет товаров.
             </p>
           )}
+
+          {/* Секция отзывов с средним рейтингом */}
+          <div className="flex justify-between items-center mt-8 mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+              Отзывы
+            </h2>
+            {user.average_rating > 0 && (
+              <div className="flex items-center">
+                <span className="text-yellow-500 text-2xl">★</span>
+                <span className="ml-2 text-gray-800 dark:text-white">
+                  {user.average_rating?.toFixed(1) || "0.0"}
+                </span>
+              </div>
+            )}
+          </div>
+          {reviews.length > 0 ? (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg"
+                >
+                  <p className="text-gray-800 dark:text-white font-semibold">
+                    {review.author_name}
+                  </p>
+
+                  <div className="flex items-center mt-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <svg
+                        key={star}
+                        className={`w-5 h-5 ${
+                          star <= review.rating
+                            ? "text-yellow-500"
+                            : "text-gray-300"
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 mt-2">
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600 dark:text-gray-400">
+              Пока нет отзывов.
+            </p>
+          )}
+          {token && (
+            <button
+              onClick={() => setIsReviewModalOpen(true)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Оставить отзыв
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Модальное окно для отправки сообщения */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
@@ -210,6 +295,60 @@ const UserProfile = () => {
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Отправить
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Модальное окно для написания отзыва */}
+      <Modal
+        isOpen={isReviewModalOpen}
+        onRequestClose={() => setIsReviewModalOpen(false)}
+        className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto mt-20"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+      >
+        <h2 className="text-2xl font-bold mb-4">Оставить отзыв</h2>
+        <form onSubmit={handleSendReview}>
+          <textarea
+            value={reviewContent}
+            onChange={(e) => setReviewContent(e.target.value)}
+            className="w-full p-2 border rounded mb-4"
+            rows="4"
+            placeholder="Введите ваш отзыв..."
+            required
+          />
+          <div className="mb-4">
+            <label className="block text-gray-700 dark:text-gray-300 mb-2">
+              Оценка:
+            </label>
+            <div className="flex">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setReviewRating(star)}
+                  className={`w-8 h-8 ${
+                    star <= reviewRating ? "text-yellow-500" : "text-gray-300"
+                  }`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsReviewModalOpen(false)}
               className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
             >
               Отмена

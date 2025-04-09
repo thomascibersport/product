@@ -15,7 +15,9 @@ from .views import (
     ChatListView,
     ChatMessagesView,
     UploadFileView,
-    MessageDetailView, MessageDeleteView
+    MessageDetailView, 
+    MessageDeleteView,
+    ReviewListCreateView
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -56,4 +58,5 @@ urlpatterns = [
     path('upload/', UploadFileView.as_view(), name='upload-file'),
     path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
     path('messages/<int:pk>/delete/', MessageDeleteView.as_view(), name='message-delete'),
+    path('users/<int:recipient_id>/reviews/', ReviewListCreateView.as_view(), name='review-list-create'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

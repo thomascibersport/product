@@ -14,7 +14,8 @@ from .serializers import (
     CartItemDetailSerializer,
     OrderSerializer,
     UserProfileSerializer,
-    UserSerializer
+    UserSerializer,
+    ReviewSerializer
 )
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
@@ -28,12 +29,16 @@ from .serializers import MessageSerializer
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.serializers import SerializerMethodField
-from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.db import models
+from .models import Review
+from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticatedOrReadOnly
+from django.db.models import Avg
+from rest_framework.exceptions import ValidationError
+
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -49,7 +54,7 @@ class UpdateProfileView(generics.UpdateAPIView):
         serializer.save()
         return Response(serializer.data)
 class UserProfileView(generics.RetrieveUpdateAPIView):
-    queryset = User.objects.all()
+    queryset = User.objects.annotate(average_rating=Avg('received_reviews__rating'))
     serializer_class = UserProfileSerializer
     lookup_field = 'id'
     permission_classes = [AllowAny]
@@ -351,3 +356,23 @@ class MessageListView(APIView):
         messages = Message.objects.filter(is_deleted=False)
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
+class ReviewListCreateView(generics.ListCreateAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        recipient_id = self.kwargs['recipient_id']
+        return Review.objects.filter(recipient_id=recipient_id)
+
+    def perform_create(self, serializer):
+        recipient_id = self.kwargs['recipient_id']
+        recipient = get_object_or_404(User, id=recipient_id)
+        if Review.objects.filter(author=self.request.user, recipient=recipient).exists():
+            raise ValidationError("Вы уже оставили отзыв этому пользователю.")
+        serializer.save(author=self.request.user, recipient=recipient)
+class IsAuthenticatedOrReadOnly(BasePermission):
+    def has_permission(self, request, view):
+        # Разрешаем GET-запросы всем, а остальные — только авторизованным
+        if request.method in SAFE_METHODS:
+            return True
+        return request.user and request.user.is_authenticated

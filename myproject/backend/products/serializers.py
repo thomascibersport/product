@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.contrib.auth import get_user_model
 from .models import Message
+from .models import Review
 User = get_user_model()
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -214,9 +215,11 @@ class OrderSerializer(serializers.ModelSerializer):
         return order
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    average_rating = serializers.FloatField(read_only=True)  # Добавлено поле среднего рейтинга
+
     class Meta:
         model = User  
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating']
         extra_kwargs = {
             'show_phone': {'required': False, 'allow_null': True}
         }
@@ -233,3 +236,15 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ["id", "sender", "recipient", "content", "timestamp"]
         read_only_fields = ["sender", "timestamp"]
+class ReviewSerializer(serializers.ModelSerializer):
+    author = serializers.PrimaryKeyRelatedField(read_only=True)
+    author_name = serializers.SerializerMethodField()
+    recipient = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["id", "author", "author_name", "recipient", "content", "rating", "created_at"]
+        read_only_fields = ["author", "created_at", "recipient"]
+
+    def get_author_name(self, obj):
+        return f"{obj.author.first_name} {obj.author.last_name}"
