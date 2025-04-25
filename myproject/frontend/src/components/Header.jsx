@@ -8,20 +8,18 @@ import {
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { getUser } from "../api/auth";
-import { getToken, logout as clearToken } from "../utils/auth";
+import { getToken } from "../utils/auth";
 import { AuthContext } from "../AuthContext";
 import axios from "axios";
 
 function Header() {
-  const { avatar, setAvatar} = useContext(AuthContext);
-  const [username, setUsername] = useState("Гость");
-  const [user, setUser] = useState(null);
+  const { user, token, logout, setUser } = useContext(AuthContext);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
     return savedTheme ? savedTheme === "dark" : false;
   });
   const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
-  const [hasMessages, setHasMessages] = useState(false); // Состояние для проверки сообщений
+  const [hasMessages, setHasMessages] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,9 +36,7 @@ function Header() {
           return;
         }
         const response = await getUser(token);
-        setUser(response.data);
-        setUsername(response.data.username);
-        setAvatar(response.data.avatar || "/media/default-avatar.png");
+        setUser(response.data); // Обновляем весь объект пользователя
         setIsAuthenticated(true);
 
         // Проверка наличия сообщений
@@ -57,13 +53,11 @@ function Header() {
     };
 
     fetchUserData();
-  }, [navigate, setAvatar]);
+  }, [navigate, setUser, setHasMessages]);
 
   const handleLogout = () => {
-    clearToken();
+    logout(); // Используем logout из AuthContext
     setIsAuthenticated(false);
-    setUsername("Гость");
-    setAvatar("/media/default-avatar.png");
     navigate("/login");
   };
 
@@ -111,11 +105,11 @@ function Header() {
               className="flex items-center gap-2 text-white hover:bg-gray-700"
             >
               <img
-                src={avatar}
+                src={user?.avatar || "/media/default-avatar.png"}
                 alt="avatar"
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <span>{username}</span>
+              <span>{user?.username || "Гость"}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-white text-black shadow-lg rounded-lg mt-2">

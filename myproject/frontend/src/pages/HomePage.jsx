@@ -11,7 +11,7 @@ const HomePage = () => {
 
   useEffect(() => {
     const token = Cookies.get("token");
-    // Если токена нет, заголовки не передаются
+
     const config = token
       ? { headers: { Authorization: `Bearer ${token}` } }
       : {};
@@ -31,12 +31,10 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
-
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           🛍️ Все товары
         </h1>
-
         {loading ? (
           <div className="text-center py-20">
             <div className="inline-block bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl">
@@ -79,11 +77,9 @@ const HomePage = () => {
                     </div>
                   )}
                 </div>
-
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2 truncate">
                   {product.name}
                 </h2>
-
                 <div className="flex items-center justify-between">
                   <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 rounded-full text-sm">
                     {product.category ? product.category.name : "Без категории"}

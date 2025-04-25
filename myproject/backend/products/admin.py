@@ -1,7 +1,7 @@
 from django.contrib import admin
-from .models import Product, Category, CartItem, Order, OrderItem, Message
+from .models import Product, Category, CartItem, Order, OrderItem, Message, Review
 
-# Существующие классы
+# Класс для Product
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'farmer', 'price', 'created_at', 'delivery_available')
     list_filter = ('category', 'farmer', 'delivery_available')
@@ -9,22 +9,26 @@ class ProductAdmin(admin.ModelAdmin):
     list_editable = ('price',)
     prepopulated_fields = {'slug': ('name',)}
 
+# Класс для Category
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'created_at')
     search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
 
+# Класс для CartItem
 class CartItemAdmin(admin.ModelAdmin):
     list_display = ('user', 'product', 'quantity', 'created_at')
     list_filter = ('user', 'created_at')
     search_fields = ('product__name', 'user__username')
 
+# Инлайн для OrderItem
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
     fields = ('product', 'quantity', 'price')
     readonly_fields = ('product', 'quantity', 'price')
 
+# Класс для Order
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'created_at', 'status', 'get_farmers', 'canceled_by', 'cancel_reason']
@@ -60,7 +64,7 @@ class OrderAdmin(admin.ModelAdmin):
         return obj.delivery_address if obj.delivery_type == 'delivery' else obj.pickup_address
     get_address.short_description = 'Адрес'
 
-# Новый класс для Message
+# Класс для Message
 class MessageAdmin(admin.ModelAdmin):
     list_display = ('sender', 'recipient', 'timestamp', 'content_preview')
     list_filter = ('sender', 'recipient', 'timestamp')
@@ -69,10 +73,17 @@ class MessageAdmin(admin.ModelAdmin):
 
     def content_preview(self, obj):
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
-    content_preview.short_description = 'Content Preview'
+    content_preview.short_description = 'Предпросмотр сообщения'
 
-# Регистрация моделей
+# Класс для Review
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('author', 'recipient', 'rating', 'created_at')
+    list_filter = ('rating', 'created_at')
+    search_fields = ('author__username', 'recipient__username', 'content')
+
+# Регистрация всех моделей
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(CartItem, CartItemAdmin)
 admin.site.register(Message, MessageAdmin)
+admin.site.register(Review, ReviewAdmin)

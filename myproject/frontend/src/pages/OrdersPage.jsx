@@ -211,17 +211,7 @@ const OrdersPage = () => {
                     )}
                   </div>
                 </div>
-                <div className="mb-4">
-                  {order.delivery_type === "delivery" ? (
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Адрес доставки: {order.delivery_address}
-                    </p>
-                  ) : (
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Пункт самовывоза: {order.pickup_address}
-                    </p>
-                  )}
-                </div>
+
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
                     Товары:

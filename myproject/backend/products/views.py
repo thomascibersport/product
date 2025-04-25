@@ -6,7 +6,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .models import Product, Category, CartItem, Order  
+from .models import Product, Category, CartItem, Order, OrderItem, Review
 from .serializers import (
     ProductSerializer, 
     CategorySerializer, 
@@ -20,25 +20,25 @@ from .serializers import (
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
-from .serializers import OrderSerializer
 from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from .models import Message
 from .serializers import MessageSerializer
-from django.db.models import Q
+
 from rest_framework.views import APIView
 from rest_framework.serializers import SerializerMethodField
-from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.db import models
-from .models import Review
 from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticatedOrReadOnly
-from django.db.models import Avg
-from rest_framework.exceptions import ValidationError
 
+
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Sum, Count, Avg, Q
+from django.db.models.functions import TruncMonth
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -376,3 +376,76 @@ class IsAuthenticatedOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user and request.user.is_authenticated
+class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        # Проверяем, что только автор отзыва может его удалить
+        if instance.author != self.request.user:
+            raise PermissionDenied("Вы не можете удалить этот отзыв.")
+        instance.delete()
+
+
+class SellerStatisticsView(LoginRequiredMixin, TemplateView):
+    template_name = 'seller_statistics.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        seller = self.request.user
+
+        # Завершенные заказы с товарами продавца
+        completed_orders = Order.objects.filter(
+            items__product__farmer=seller,
+            status='delivered'
+        ).distinct()
+
+        # 1. Общее количество проданных товаров
+        total_sold = OrderItem.objects.filter(
+            order__in=completed_orders,
+            product__farmer=seller
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        # 2. Список проданных товаров с количеством
+        sold_products = OrderItem.objects.filter(
+            order__in=completed_orders,
+            product__farmer=seller
+        ).values('product__name').annotate(total_sold=Sum('quantity')).order_by('-total_sold')
+
+        # 3. Список покупателей с количеством покупок
+        buyers = Order.objects.filter(
+            items__product__farmer=seller,
+            status='delivered'
+        ).values('user__username').annotate(purchases=Count('id')).order_by('-purchases')
+
+        # 4. Средний рейтинг покупателей
+        buyer_ids = Order.objects.filter(
+            items__product__farmer=seller,
+            status='delivered'
+        ).values_list('user_id', flat=True).distinct()
+        average_rating = Review.objects.filter(
+            recipient_id__in=buyer_ids
+        ).aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
+
+        # 5. Динамика продаж по месяцам
+        sales_by_month = OrderItem.objects.filter(
+            order__in=completed_orders,
+            product__farmer=seller
+        ).annotate(month=TruncMonth('order__created_at')).values('month').annotate(total=Sum('quantity')).order_by('month')
+
+        # 6. Популярность товаров по категориям
+        category_sales = OrderItem.objects.filter(
+            order__in=completed_orders,
+            product__farmer=seller
+        ).values('product__category__name').annotate(total=Sum('quantity')).order_by('-total')
+
+        # Передаем данные в контекст шаблона
+        context['total_sold'] = total_sold
+        context['sold_products'] = sold_products
+        context['buyers'] = buyers
+        context['average_rating'] = round(average_rating, 2)
+        context['sales_by_month'] = sales_by_month
+        context['category_sales'] = category_sales
+
+        return context

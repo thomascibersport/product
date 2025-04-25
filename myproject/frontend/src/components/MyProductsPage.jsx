@@ -51,11 +51,21 @@ const AddProductModal = React.memo(
       },
       [localState, onSubmit]
     );
-
+    const handleOverlayClick = useCallback(
+      (e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      },
+      [onClose]
+    );
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+        onClick={handleOverlayClick} // Обработчик клика на overlay
+      >
         <div
           ref={modalRef}
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
@@ -63,13 +73,20 @@ const AddProductModal = React.memo(
           <div className="p-6 space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                {isEditing ? "✏️ Редактировать продукт" : "📦 Добавить новый продукт"}
+                {isEditing
+                  ? "✏️ Редактировать продукт"
+                  : "📦 Добавить новый продукт"}
               </h2>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500 dark:text-gray-400"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -93,6 +110,7 @@ const AddProductModal = React.memo(
             )}
 
             <form onSubmit={handleSubmitForm} className="space-y-4">
+              {/* Остальная часть формы остается без изменений */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-900 dark:text-gray-300 mb-1">
@@ -114,6 +132,37 @@ const AddProductModal = React.memo(
                   {formErrors.name && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                       ⚠️ {formErrors.name}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    Цена за единицу
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={localState.price}
+                      onChange={(e) => {
+                        if (/^\d*\.?\d*$/.test(e.target.value))
+                          handleChange("price", e.target.value);
+                      }}
+                      placeholder="0.00"
+                      required
+                      className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                        formErrors.price
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-16`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      ₽ / {localState.unit || "ед."}
+                    </span>
+                  </div>
+                  {formErrors.price && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      ⚠️ {formErrors.price}
                     </p>
                   )}
                 </div>
@@ -256,7 +305,9 @@ const AddProductModal = React.memo(
                   <input
                     type="text"
                     value={localState.seller_address}
-                    onChange={(e) => handleChange("seller_address", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("seller_address", e.target.value)
+                    }
                     placeholder="Введите адрес пункта выдачи"
                     className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
                       formErrors.seller_address
@@ -331,7 +382,9 @@ const AddProductModal = React.memo(
                 <input
                   type="checkbox"
                   checked={localState.delivery_available}
-                  onChange={(e) => handleChange("delivery_available", e.target.checked)}
+                  onChange={(e) =>
+                    handleChange("delivery_available", e.target.checked)
+                  }
                   className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 transition-all"
                   id="deliveryCheckbox"
                 />
@@ -344,10 +397,10 @@ const AddProductModal = React.memo(
               </div>
               {!localState.delivery_available && (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  При отключенной доставке покупатели будут забирать товар по указанному адресу
+                  При отключенной доставке покупатели будут забирать товар по
+                  указанному адресу
                 </p>
               )}
-
               <button
                 type="submit"
                 className="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all transform hover:scale-[1.02] shadow-lg"
@@ -419,7 +472,21 @@ const MyProductsPage = () => {
       })
       .catch(console.error);
   }, [navigate]);
-
+  const resetFormState = useCallback(() => {
+    setFormState({
+      name: "",
+      description: "",
+      price: "",
+      quantity: "",
+      unit: measurementUnits[0],
+      category: categories[0]?.id.toString() || "",
+      image: null,
+      delivery_available: false,
+      seller_address: "",
+      delivery_days: 1,
+    });
+    setImagePreview(null);
+  }, [categories, measurementUnits]);
   // Define handleEdit in MyProductsPage
   const handleEdit = useCallback(
     (product) => {
@@ -513,17 +580,21 @@ const MyProductsPage = () => {
         setImagePreview(null);
         setIsModalOpen(false);
         setSuccessMessage(
-          formData.id ? "Продукт успешно обновлен!" : "Продукт успешно добавлен!"
+          formData.id
+            ? "Продукт успешно обновлен!"
+            : "Продукт успешно добавлен!"
         );
       } catch (error) {
         if (error.response) {
           if (error.response.data?.errors) {
             setFormErrors(
               Object.fromEntries(
-                Object.entries(error.response.data.errors).map(([key, value]) => [
-                  key,
-                  Array.isArray(value) ? value.join(" ") : value,
-                ])
+                Object.entries(error.response.data.errors).map(
+                  ([key, value]) => [
+                    key,
+                    Array.isArray(value) ? value.join(" ") : value,
+                  ]
+                )
               )
             );
           } else {
@@ -621,7 +692,9 @@ const MyProductsPage = () => {
                       />
                     ) : (
                       <div className="w-full h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center rounded-xl">
-                        <span className="text-gray-400">🖼️ Нет изображения</span>
+                        <span className="text-gray-400">
+                          🖼️ Нет изображения
+                        </span>
                       </div>
                     )}
                   </div>
@@ -653,7 +726,12 @@ const MyProductsPage = () => {
                       onClick={() => handleEdit(product)}
                       className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -667,7 +745,12 @@ const MyProductsPage = () => {
                       onClick={() => handleDelete(product.id)}
                       className="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -688,7 +771,7 @@ const MyProductsPage = () => {
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
-            setImagePreview(null);
+            resetFormState(); // Сбрасываем состояние при закрытии
           }}
           onSubmit={handleSubmit}
           formState={formState}

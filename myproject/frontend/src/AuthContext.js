@@ -1,32 +1,51 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
+import { getUser } from './api/auth'; // Подключаем вашу функцию getUser
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [avatar, setAvatar] = useState("/media/default-avatar.png");
-  const [username, setUsername] = useState("Гость");
+  const [user, setUser] = useState(null); // Хранит полный объект пользователя
   const [token, setToken] = useState(Cookies.get("token") || null);
   const [hasMessages, setHasMessages] = useState(false);
 
+  // Загружаем данные пользователя, если есть токен
+  useEffect(() => {
+    if (token && !user) {
+      getUser(token)
+        .then(response => {
+          setUser(response.data); // Сохраняем данные пользователя, включая id
+        })
+        .catch(error => {
+          console.error("Ошибка загрузки данных пользователя:", error);
+          setUser(null);
+        });
+    }
+  }, [token]);
+
   const login = (newToken, newUsername, newAvatar) => {
     setToken(newToken);
-    setUsername(newUsername);
-    setAvatar(newAvatar || "/media/default-avatar.png");
     Cookies.set("token", newToken, { secure: true, sameSite: "Strict" });
+    // После логина сразу загружаем данные пользователя
+    getUser(newToken)
+      .then(response => {
+        setUser(response.data); // Сохраняем данные пользователя
+      })
+      .catch(error => {
+        console.error("Ошибка загрузки данных при логине:", error);
+      });
   };
 
   const logout = () => {
     setToken(null);
-    setUsername("Гость");
-    setAvatar("/media/default-avatar.png");
+    setUser(null);
     setHasMessages(false);
     Cookies.remove("token");
   };
 
   return (
     <AuthContext.Provider
-      value={{ avatar, setAvatar, username, setUsername, token, login, logout, hasMessages, setHasMessages }}
+      value={{ user, setUser, token, login, logout, hasMessages, setHasMessages }}
     >
       {children}
     </AuthContext.Provider>
