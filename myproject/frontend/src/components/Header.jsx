@@ -90,6 +90,9 @@ function Header() {
             <Link to="/seller-orders" className="hover:text-gray-300">
               Заказы на мои товары
             </Link>
+            <Link to="/seller-statistics" className="hover:text-gray-300">
+              Статистика
+            </Link>
             {hasMessages && (
               <Link to="/messages" className="hover:text-gray-300">
                 Сообщения

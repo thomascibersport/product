@@ -62,5 +62,5 @@ urlpatterns = [
     path('messages/<int:pk>/delete/', MessageDeleteView.as_view(), name='message-delete'),
     path('users/<int:recipient_id>/reviews/', ReviewListCreateView.as_view(), name='review-list-create'),
     path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
-    path('seller/statistics/', SellerStatisticsView.as_view(), name='seller_statistics'),
+    path('seller-statistics/', SellerStatisticsView.as_view(), name='seller-statistics'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

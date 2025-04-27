@@ -17,6 +17,23 @@ from .serializers import (
     UserSerializer,
     ReviewSerializer
 )
+from django.db.models import Avg, Count, Sum, F, IntegerField, FloatField
+from django.db.models.functions import ExtractHour, TruncMonth
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Order, OrderItem, Review
+from django.utils import timezone
+from django.db.models import Q
+
+
+from django.utils import timezone
+from django.db.models import Count, Avg, F, IntegerField, ExpressionWrapper
+from django.db.models.functions import ExtractIsoWeekDay
+from rest_framework.views import APIView
+from rest_framework import serializers
+
+from .models import Order
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
@@ -39,6 +56,11 @@ from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Sum, Count, Avg, Q
 from django.db.models.functions import TruncMonth
+
+from django.db.models import Case, When, Value, IntegerField, DecimalField, FloatField
+from django.db.models.expressions import ExpressionWrapper
+
+from django.db.models import Subquery, OuterRef, IntegerField, Count, Sum
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -386,66 +408,174 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         if instance.author != self.request.user:
             raise PermissionDenied("Вы не можете удалить этот отзыв.")
         instance.delete()
+class SellerStatisticsView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        seller = request.user
+        current_year = timezone.now().year
+        
+        # Основные метрики
+        orders_data = self.get_orders_data(seller)
+        products_data = self.get_products_data(seller)
+        customers_data = self.get_customers_data(seller)
+        monthly_stats = self.get_monthly_stats(seller, current_year)
+        rating_stats = self.get_rating_stats(seller)
+        
+        # Новые метрики
+        avg_customer_rating = self.get_avg_customer_rating(seller)
+        peak_hours = self.get_peak_hours(seller)
+        purchases = self.get_purchases(seller)
+        seasonal_products = self.get_seasonal_products(seller)
 
-class SellerStatisticsView(LoginRequiredMixin, TemplateView):
-    template_name = 'seller_statistics.html'
+        return Response({
+            'orders': orders_data,
+            'products': products_data,
+            'customers': customers_data,
+            'monthly_stats': monthly_stats,
+            'rating_stats': rating_stats,
+            'avg_customer_rating': avg_customer_rating,
+            'peak_hours': peak_hours,
+            'purchases': purchases,
+            'seasonal_products': seasonal_products
+        })
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        seller = self.request.user
+    def get_orders_data(self, seller):
+        orders = OrderItem.objects.filter(
+            product__farmer=seller,
+            order__status__in=['confirmed', 'shipped', 'delivered']
+        )
+        
+        aggregation = orders.aggregate(
+            total_orders=Count('id'),
+            total_quantity=Sum('quantity'),
+            total_revenue=Sum(
+                ExpressionWrapper(
+                    F('price') * F('quantity'),
+                    output_field=FloatField()
+                )
+            )
+        )
+        
+        return {
+            'total_orders': aggregation['total_orders'],
+            'total_quantity': aggregation['total_quantity'] or 0,
+            'total_revenue': aggregation['total_revenue'] or 0
+        }
 
-        # Завершенные заказы с товарами продавца
-        completed_orders = Order.objects.filter(
-            items__product__farmer=seller,
-            status='delivered'
-        ).distinct()
-
-        # 1. Общее количество проданных товаров
-        total_sold = OrderItem.objects.filter(
-            order__in=completed_orders,
+    def get_products_data(self, seller):
+        return OrderItem.objects.filter(
             product__farmer=seller
-        ).aggregate(total=Sum('quantity'))['total'] or 0
+        ).values(
+            'product__name'
+        ).annotate(
+            total_sold=Sum('quantity'),
+            total_revenue=Sum(
+                ExpressionWrapper(
+                    F('price') * F('quantity'),
+                    output_field=FloatField()
+                )
+            )
+        ).order_by('-total_sold')[:10]
 
-        # 2. Список проданных товаров с количеством
-        sold_products = OrderItem.objects.filter(
-            order__in=completed_orders,
+    def get_customers_data(self, seller):
+        customers = OrderItem.objects.filter(
             product__farmer=seller
-        ).values('product__name').annotate(total_sold=Sum('quantity')).order_by('-total_sold')
+        ).values(
+            'order__user__id',
+            'order__user__first_name',
+            'order__user__last_name'
+        ).annotate(
+            order_count=Count('order', distinct=True),
+            total_spent=Sum(F('price') * F('quantity'))
+        )
+        
+        for customer in customers:
+            user_id = customer['order__user__id']
+            customer['avg_rating'] = Review.objects.filter(
+                recipient_id=user_id
+            ).aggregate(Avg('rating'))['rating__avg'] or 0
+            
+        return sorted(customers, key=lambda x: x['total_spent'], reverse=True)[:10]
 
-        # 3. Список покупателей с количеством покупок
-        buyers = Order.objects.filter(
-            items__product__farmer=seller,
-            status='delivered'
-        ).values('user__username').annotate(purchases=Count('id')).order_by('-purchases')
+    def get_monthly_stats(self, seller, year):
+        return OrderItem.objects.filter(
+            product__farmer=seller,
+            order__created_at__year=year
+        ).annotate(
+            month=TruncMonth('order__created_at')
+        ).values('month').annotate(
+            orders=Count('id'),
+            revenue=Sum(F('price') * F('quantity')),
+            items_sold=Sum('quantity')
+        ).order_by('month')
 
-        # 4. Средний рейтинг покупателей
-        buyer_ids = Order.objects.filter(
-            items__product__farmer=seller,
-            status='delivered'
-        ).values_list('user_id', flat=True).distinct()
-        average_rating = Review.objects.filter(
-            recipient_id__in=buyer_ids
-        ).aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
+    def get_rating_stats(self, seller):
+        order_count_subquery = Order.objects.filter(
+            user=OuterRef('recipient'),
+            items__product__farmer=seller
+        ).values('user').annotate(count=Count('id')).values('count')
 
-        # 5. Динамика продаж по месяцам
-        sales_by_month = OrderItem.objects.filter(
-            order__in=completed_orders,
+        rating_stats = Review.objects.filter(
+            recipient__in=User.objects.filter(
+                id__in=OrderItem.objects.filter(
+                    product__farmer=seller
+                ).values_list('order__user', flat=True).distinct()
+            )
+        ).annotate(
+            order_count=Subquery(order_count_subquery, output_field=IntegerField())
+        ).values('rating').annotate(
+            count=Count('id'),
+            total_orders=Sum('order_count')
+        ).order_by('-rating')
+
+        return rating_stats
+
+    def get_avg_customer_rating(self, seller):
+        customer_ids = OrderItem.objects.filter(
             product__farmer=seller
-        ).annotate(month=TruncMonth('order__created_at')).values('month').annotate(total=Sum('quantity')).order_by('month')
+        ).values_list('order__user__id', flat=True).distinct()
+        
+        avg_rating = Review.objects.filter(
+            recipient_id__in=customer_ids
+        ).aggregate(Avg('rating'))['rating__avg'] or 0
+        
+        return avg_rating
 
-        # 6. Популярность товаров по категориям
-        category_sales = OrderItem.objects.filter(
-            order__in=completed_orders,
+    def get_peak_hours(self, seller):
+        peak_hours = Order.objects.filter(
+            items__product__farmer=seller
+        ).annotate(
+            hour=ExtractHour('created_at')
+        ).values('hour').annotate(
+            order_count=Count('id')
+        ).order_by('hour')
+        
+        return list(peak_hours)
+
+    def get_purchases(self, seller):
+        return OrderItem.objects.filter(
             product__farmer=seller
-        ).values('product__category__name').annotate(total=Sum('quantity')).order_by('-total')
+        ).values(
+            'order__user__id',
+            'order__user__first_name',
+            'order__user__last_name',
+            'product__name',
+            'quantity',
+            'price'
+        ).order_by('-order__user__id')
 
-        # Передаем данные в контекст шаблона
-        context['total_sold'] = total_sold
-        context['sold_products'] = sold_products
-        context['buyers'] = buyers
-        context['average_rating'] = round(average_rating, 2)
-        context['sales_by_month'] = sales_by_month
-        context['category_sales'] = category_sales
-
-        return context
+    def get_seasonal_products(self, seller):
+        current_month = timezone.now().month
+        season_start = (current_month - 2) % 12 or 12  # Пример: последние 3 месяца
+        season_end = current_month
+        
+        return OrderItem.objects.filter(
+            product__farmer=seller,
+            order__created_at__month__gte=season_start,
+            order__created_at__month__lte=season_end
+        ).values(
+            'product__name'
+        ).annotate(
+            total_sold=Sum('quantity')
+        ).order_by('-total_sold')[:5]

@@ -74,3 +74,60 @@ code {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #555; /* Цвет при наведении */
 }
+
+
+
+.dashboard-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.metric-card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.metric-card h3 {
+  color: #666;
+  margin: 0 0 10px 0;
+}
+
+.metric-card p {
+  font-size: 24px;
+  margin: 0;
+  color: #333;
+}
+
+.chart-section, .products-section, .customers-section {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  margin-bottom: 30px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #f5f5f5;
+}

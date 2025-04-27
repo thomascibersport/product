@@ -14,7 +14,7 @@ import SellerOrdersPage from "./pages/SellerOrdersPage";
 import UserProfile from "./components/UserProfile";
 import MessagesPage from "../src/pages/MessagesPage";
 import ChatPage from "../src/pages/ChatPage";
-
+import SellerStatisticsPage from "../src/pages/SellerStatisticsPage";
 const App = () => {
   return (
     <Router>
@@ -34,6 +34,7 @@ const App = () => {
             <Route path="/users/:id" element={<UserProfile />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/chat/:id" element={<ChatPage />} />
+            <Route path="/seller-statistics" element={<SellerStatisticsPage />} />
           </Routes>
         </Suspense>
       </AuthProvider>

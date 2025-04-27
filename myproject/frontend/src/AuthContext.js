@@ -1,15 +1,18 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import Cookies from 'js-cookie';
-import { getUser } from './api/auth'; // Подключаем вашу функцию getUser
+import { getUser } from './api/auth';
 
 export const AuthContext = createContext();
 
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // Хранит полный объект пользователя
+  const [user, setUser] = useState(null);
   const [token, setToken] = useState(Cookies.get("token") || null);
   const [hasMessages, setHasMessages] = useState(false);
 
-  // Загружаем данные пользователя, если есть токен
   useEffect(() => {
     if (token && !user) {
       getUser(token)
@@ -26,7 +29,6 @@ export const AuthProvider = ({ children }) => {
   const login = (newToken, newUsername, newAvatar) => {
     setToken(newToken);
     Cookies.set("token", newToken, { secure: true, sameSite: "Strict" });
-    // После логина сразу загружаем данные пользователя
     getUser(newToken)
       .then(response => {
         setUser(response.data); // Сохраняем данные пользователя

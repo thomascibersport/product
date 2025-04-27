@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { register } from "../api/auth";
 import { isAuthenticated } from "../utils/auth";
 import InputMask from "react-input-mask";
-import Header from "../components/Header"; // Импортируем Header
+import Header from "../components/Header"; 
 
 function Register() {
   const [error, setError] = useState(null);
