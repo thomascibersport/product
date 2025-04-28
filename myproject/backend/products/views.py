@@ -61,6 +61,16 @@ from django.db.models import Case, When, Value, IntegerField, DecimalField, Floa
 from django.db.models.expressions import ExpressionWrapper
 
 from django.db.models import Subquery, OuterRef, IntegerField, Count, Sum
+
+from django.db.models import Avg, Count, Sum, F
+from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Order, OrderItem, Review
+
+
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -415,18 +425,26 @@ class SellerStatisticsView(APIView):
         seller = request.user
         current_year = timezone.now().year
         
-        # Основные метрики
+        # Существующие метрики
         orders_data = self.get_orders_data(seller)
         products_data = self.get_products_data(seller)
         customers_data = self.get_customers_data(seller)
         monthly_stats = self.get_monthly_stats(seller, current_year)
         rating_stats = self.get_rating_stats(seller)
-        
-        # Новые метрики
         avg_customer_rating = self.get_avg_customer_rating(seller)
         peak_hours = self.get_peak_hours(seller)
         purchases = self.get_purchases(seller)
         seasonal_products = self.get_seasonal_products(seller)
+        
+        # Новые метрики
+        category_sales = self.get_category_sales(seller)
+        sales_by_day_of_week = self.get_sales_by_day_of_week(seller)
+        order_statuses = self.get_order_statuses(seller)
+        delivery_pickup_stats = self.get_delivery_pickup_stats(seller)
+        payment_method_stats = self.get_payment_method_stats(seller)
+        cancellation_stats = self.get_cancellation_stats(seller)
+        review_stats = self.get_review_stats(seller)
+        customer_purchases = self.get_customer_purchases(seller)
 
         return Response({
             'orders': orders_data,
@@ -437,9 +455,114 @@ class SellerStatisticsView(APIView):
             'avg_customer_rating': avg_customer_rating,
             'peak_hours': peak_hours,
             'purchases': purchases,
-            'seasonal_products': seasonal_products
+            'seasonal_products': seasonal_products,
+            'category_sales': category_sales,
+            'sales_by_day_of_week': sales_by_day_of_week,
+            'order_statuses': order_statuses,
+            'delivery_pickup_stats': delivery_pickup_stats,
+            'payment_method_stats': payment_method_stats,
+            'cancellation_stats': cancellation_stats,
+            'review_stats': review_stats,
+            'customer_purchases': customer_purchases,
         })
+    def get_customer_purchases(self, seller):
+        orders = Order.objects.filter(
+            items__product__farmer=seller
+        ).select_related('user').prefetch_related('items__product').order_by('-created_at')
 
+        customer_purchases = []
+        for order in orders:
+            customer = {
+                'id': order.user.id,
+                'first_name': order.user.first_name,
+                'last_name': order.user.last_name,
+                'email': order.user.email,
+                'total_spent': float(order.total_amount),
+                'order_date': order.created_at.isoformat(),
+                'payment_method': order.payment_method,
+                'delivery_type': order.delivery_type,
+                'status': order.status,  # Добавлено поле статуса
+                'items': [
+                    {
+                        'product_name': item.product.name,
+                        'quantity': item.quantity,
+                        'price': float(item.price),
+                        'total': float(item.quantity * item.price)
+                    } for item in order.items.all() if item.product.farmer == seller
+                ]
+            }
+            customer_purchases.append(customer)
+        return customer_purchases
+    def get_category_sales(self, seller):
+            """Продажи по категориям"""
+            return Category.objects.filter(
+                product__farmer=seller
+            ).annotate(
+                total_sold=Sum('product__orderitem__quantity'),
+                total_revenue=Sum(F('product__orderitem__quantity') * F('product__orderitem__price'))
+            ).values('name', 'total_sold', 'total_revenue')
+
+    def get_sales_by_day_of_week(self, seller):
+        """Продажи по дням недели"""
+        return Order.objects.filter(
+            items__product__farmer=seller
+        ).annotate(
+            day_of_week=ExtractIsoWeekDay('created_at')
+        ).values('day_of_week').annotate(
+            order_count=Count('id'),
+            total_revenue=Sum('total_amount')
+        ).order_by('day_of_week')
+
+    def get_order_statuses(self, seller):
+        """Статус заказов"""
+        return Order.objects.filter(
+            items__product__farmer=seller
+        ).values('status').annotate(
+            count=Count('id')
+        )
+
+    def get_delivery_pickup_stats(self, seller):
+        """Доставка и самовывоз"""
+        return Order.objects.filter(
+            items__product__farmer=seller
+        ).values('delivery_type').annotate(
+            count=Count('id')
+        )
+
+    def get_payment_method_stats(self, seller):
+        """Способы оплаты"""
+        return Order.objects.filter(
+            items__product__farmer=seller
+        ).values('payment_method').annotate(
+            count=Count('id')
+        )
+
+    def get_cancellation_stats(self, seller):
+        """Отмены заказов"""
+        cancellations = Order.objects.filter(
+            items__product__farmer=seller,
+            status='canceled'
+        ).aggregate(
+            total_cancellations=Count('id')
+        )
+        reasons = Order.objects.filter(
+            items__product__farmer=seller,
+            status='canceled'
+        ).values('cancel_reason').annotate(
+            count=Count('id')
+        )
+        return {
+            'total_cancellations': cancellations['total_cancellations'],
+            'reasons': list(reasons)
+        }
+
+    def get_review_stats(self, seller):
+        """Статистика отзывов"""
+        reviews = Review.objects.filter(recipient=seller)
+        return {
+            'average_rating': reviews.aggregate(Avg('rating'))['rating__avg'] or 0,
+            'total_reviews': reviews.count()
+        }
     def get_orders_data(self, seller):
         orders = OrderItem.objects.filter(
             product__farmer=seller,
@@ -462,7 +585,11 @@ class SellerStatisticsView(APIView):
             'total_quantity': aggregation['total_quantity'] or 0,
             'total_revenue': aggregation['total_revenue'] or 0
         }
-
+    def get_purchases(self, seller):
+        return OrderItem.objects.filter(
+            product__farmer=seller
+        ).select_related('order', 'product').order_by('-order__created_at')[:10]
+        
     def get_products_data(self, seller):
         return OrderItem.objects.filter(
             product__farmer=seller
