@@ -57,6 +57,33 @@ const CartPage = () => {
     (item) => item.product.delivery_available
   );
 
+  const addToCart = async (productId, quantity) => {
+    const token = Cookies.get("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        "http://localhost:8000/api/cart/items/",
+        { product: productId, quantity },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Обновляем корзину после успешного добавления
+      setCartItems((prevItems) => [...prevItems, response.data]);
+    } catch (error) {
+      if (error.response && error.response.data) {
+        alert(
+          error.response.data.detail ||
+            "Ошибка при добавлении товара в корзину: " +
+              JSON.stringify(error.response.data)
+        );
+      } else {
+        alert("Ошибка при добавлении товара в корзину");
+      }
+    }
+  };
   useEffect(() => {
     const fetchCartItems = async () => {
       const token = Cookies.get("token");
@@ -183,7 +210,10 @@ const CartPage = () => {
         delivery_type: deliveryType,
         payment_method: paymentType,
         delivery_address: deliveryType === "delivery" ? deliveryAddress : null,
-        pickup_address: deliveryType === "pickup" ? "ул. Примерная, 123 (Пункт выдачи)" : null,
+        pickup_address:
+          deliveryType === "pickup"
+            ? "ул. Примерная, 123 (Пункт выдачи)"
+            : null,
         items: cartItems.map((item) => ({
           product: item.product.id,
           quantity: item.quantity,
@@ -623,6 +653,5 @@ const CartPage = () => {
     </div>
   );
 };
-
 
 export default CartPage;

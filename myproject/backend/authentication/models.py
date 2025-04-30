@@ -15,6 +15,7 @@ class CustomUser(AbstractUser):
             null=True,
             default="Адрес не указан"
         )
+    average_rating = models.FloatField(default=0.0, verbose_name="Средний рейтинг")
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     middle_name = models.CharField(max_length=150, blank=True, null=True)

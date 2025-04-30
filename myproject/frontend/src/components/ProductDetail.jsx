@@ -124,12 +124,8 @@ const ProductDetail = () => {
     } catch (error) {
       console.error("Ошибка при добавлении в корзину:", error);
       let errorMessage = "Произошла ошибка при добавлении в корзину";
-      if (error.response) {
-        if (error.response.data?.product) {
-          errorMessage = error.response.data.product;
-        } else if (error.response.data?.quantity) {
-          errorMessage = error.response.data.quantity;
-        }
+      if (error.response && error.response.data?.detail) {
+        errorMessage = error.response.data.detail;
       }
       setCartMessage({ type: "error", text: errorMessage });
     } finally {
@@ -141,6 +137,56 @@ const ProductDetail = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Блок для уведомлений */}
+        {cartMessage && (
+          <div
+            className={`p-4 rounded-xl flex items-center justify-between mb-4 ${
+              cartMessage.type === "success"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+            } animate-fade-in`}
+          >
+            <div className="flex items-center gap-2">
+              {cartMessage.type === "success" ? (
+                <svg
+                  className="w-5 h-5 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5 text-red-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              )}
+              <span>{cartMessage.text}</span>
+            </div>
+            <button
+              onClick={() => setCartMessage(null)}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {/* Основной контейнер */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8">
           <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
             🛒 {displayProduct.name}
@@ -172,12 +218,26 @@ const ProductDetail = () => {
                 <p className="text-gray-600 dark:text-gray-400">
                   Продавец:{" "}
                   <Link
-                    to={`/users/${displayProduct.farmer}/`}
+                    to={`/users/${displayProduct.farmer.id}/`} 
                     className="font-medium text-gray-800 dark:text-gray-200 hover:underline"
                   >
                     {displayProduct.farmer_name}
                   </Link>
                 </p>
+                {/* Блок для доставки и адреса */}
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-xl">
+                  <p className="text-gray-800 dark:text-gray-200">
+                    Доставка:{" "}
+                    {displayProduct.delivery_available
+                      ? "доступна"
+                      : "недоступна"}
+                  </p>
+                  {displayProduct.seller_address && (
+                    <p className="text-gray-800 dark:text-gray-200 mt-2">
+                      Адрес продавца: {displayProduct.seller_address}
+                    </p>
+                  )}
+                </div>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     Цена за 1 {displayProduct.unit || "ед."}:{" "}
@@ -252,22 +312,27 @@ const ProductDetail = () => {
                   )}
                 </button>
               )}
-
-              {cartMessage && (
-                <div
-                  className={`p-4 rounded-xl ${
-                    cartMessage.type === "success"
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                  }`}
-                >
-                  {cartMessage.text}
-                </div>
-              )}
             </div>
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

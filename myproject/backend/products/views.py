@@ -20,7 +20,6 @@ from .serializers import (
 from django.db.models import Avg, Count, Sum, F, IntegerField, FloatField
 from django.db.models.functions import ExtractHour, TruncMonth
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Order, OrderItem, Review
 from django.utils import timezone
@@ -30,7 +29,6 @@ from django.db.models import Q
 from django.utils import timezone
 from django.db.models import Count, Avg, F, IntegerField, ExpressionWrapper
 from django.db.models.functions import ExtractIsoWeekDay
-from rest_framework.views import APIView
 from rest_framework import serializers
 
 from .models import Order
@@ -43,7 +41,7 @@ from rest_framework.decorators import api_view, permission_classes
 from .models import Message
 from .serializers import MessageSerializer
 
-from rest_framework.views import APIView
+
 from rest_framework.serializers import SerializerMethodField
 from django.contrib.auth.models import User
 from django.core.files.storage import default_storage
@@ -65,11 +63,13 @@ from django.db.models import Subquery, OuterRef, IntegerField, Count, Sum
 from django.db.models import Avg, Count, Sum, F
 from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay
 from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .models import Order, OrderItem, Review
 
+from .models import Order, OrderItem
+
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from authentication.models import  CustomUser
+from .models import Review
 
 User = get_user_model()
 
@@ -86,7 +86,7 @@ class UpdateProfileView(generics.UpdateAPIView):
         serializer.save()
         return Response(serializer.data)
 class UserProfileView(generics.RetrieveUpdateAPIView):
-    queryset = User.objects.annotate(average_rating=Avg('received_reviews__rating'))
+    queryset = CustomUser.objects.all()
     serializer_class = UserProfileSerializer
     lookup_field = 'id'
     permission_classes = [AllowAny]
@@ -170,13 +170,29 @@ class CartItemViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         product_id = self.request.data.get('product')
         quantity = self.request.data.get('quantity', 1)
-        
-        # Проверяем существование товара
+
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             raise ValidationError({'product': 'Товар не найден'})
-            
+
+        current_cart_items = CartItem.objects.filter(user=self.request.user)
+
+        if current_cart_items.exists():
+            first_item_farmer = current_cart_items.first().product.farmer
+            if product.farmer != first_item_farmer:
+                raise ValidationError(
+                    'Нельзя добавлять товары от разных продавцов в одну корзину.'
+                )
+        cart_item, created = CartItem.objects.get_or_create(
+            user=self.request.user,
+            product=product,
+            defaults={'quantity': quantity}
+        )
+        
+        if not created:
+            cart_item.quantity += int(quantity)
+            cart_item.save()
         # Обновляем количество если товар уже в корзине
         cart_item, created = CartItem.objects.get_or_create(
             user=self.request.user,
@@ -706,3 +722,38 @@ class SellerStatisticsView(APIView):
         ).annotate(
             total_sold=Sum('quantity')
         ).order_by('-total_sold')[:5]
+class ReviewListCreateView(generics.ListCreateAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        recipient_id = self.kwargs['recipient_id']
+        return Review.objects.filter(recipient_id=recipient_id)
+
+    def perform_create(self, serializer):
+        recipient_id = self.kwargs['recipient_id']
+        recipient = get_object_or_404(CustomUser, id=recipient_id)
+        if Review.objects.filter(author=self.request.user, recipient=recipient).exists():
+            raise ValidationError("Вы уже оставили отзыв этому пользователю.")
+        review = serializer.save(author=self.request.user, recipient=recipient)
+        # Update average rating
+        reviews = Review.objects.filter(recipient=recipient)
+        average_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0.0
+        recipient.average_rating = average_rating
+        recipient.save()
+
+class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied("Вы не можете удалить этот отзыв.")
+        recipient = instance.recipient
+        instance.delete()
+        # Update average rating
+        reviews = Review.objects.filter(recipient=recipient)
+        average_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0.0 if reviews.exists() else 0.0
+        recipient.average_rating = average_rating
+        recipient.save()

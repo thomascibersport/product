@@ -9,8 +9,17 @@ import "../index.css";
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ordersPerPage] = useState(10);
   const navigate = useNavigate();
 
   const waveAnimation = `
@@ -55,6 +64,7 @@ const OrdersPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         setOrders(response.data);
+        setFilteredOrders(response.data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -63,6 +73,51 @@ const OrdersPage = () => {
     };
     fetchOrders();
   }, [navigate]);
+
+  useEffect(() => {
+    let filtered = orders;
+
+    if (searchTerm.length >= 3) {
+      filtered = filtered.filter(
+        (order) =>
+          order.id.toString().includes(searchTerm) ||
+          order.items.some((item) =>
+            item.product?.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+      );
+    }
+
+    if (statusFilter) {
+      filtered = filtered.filter((order) => order.status === statusFilter);
+    }
+
+    if (startDate) {
+      filtered = filtered.filter((order) =>
+        moment(order.created_at).isSameOrAfter(moment(startDate))
+      );
+    }
+
+    if (endDate) {
+      filtered = filtered.filter((order) =>
+        moment(order.created_at).isSameOrBefore(moment(endDate))
+      );
+    }
+
+    if (minAmount) {
+      filtered = filtered.filter(
+        (order) => order.total_amount >= parseFloat(minAmount)
+      );
+    }
+
+    if (maxAmount) {
+      filtered = filtered.filter(
+        (order) => order.total_amount <= parseFloat(maxAmount)
+      );
+    }
+
+    setFilteredOrders(filtered);
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, startDate, endDate, minAmount, maxAmount, orders]);
 
   const formatDate = (dateString) =>
     moment(dateString).format("DD.MM.YYYY HH:mm");
@@ -75,8 +130,7 @@ const OrdersPage = () => {
     }
     if (!window.confirm("Вы уверены, что хотите отменить заказ?")) return;
 
-    const reason = "Вы отменили заказ"; // Фиксированная причина
-
+    const reason = "Вы отменили заказ";
     try {
       await axios.post(
         `http://localhost:8000/api/orders/${orderId}/cancel/`,
@@ -89,12 +143,19 @@ const OrdersPage = () => {
           : order
       );
       setOrders(updatedOrders);
+      setFilteredOrders(updatedOrders);
       alert("Заказ успешно отменен");
     } catch (error) {
       alert("Ошибка при отмене заказа");
       console.error("Ошибка отмены заказа:", error);
     }
   };
+
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   if (loading)
     return (
@@ -117,7 +178,63 @@ const OrdersPage = () => {
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           📦 История заказов
         </h1>
-        {orders.length === 0 ? (
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="text"
+              placeholder="Поиск по номеру заказа или товару (мин. 3 символа)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 p-2 border rounded"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="p-2 border rounded"
+            >
+              <option value="">Все статусы</option>
+              <option value="processing">В обработке</option>
+              <option value="confirmed">Подтвержден</option>
+              <option value="shipped">Отправлен</option>
+              <option value="in_transit">В пути</option>
+              <option value="delivered">Доставлен</option>
+              <option value="canceled">Отменен</option>
+            </select>
+          </div>
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="p-2 border rounded"
+              placeholder="Начальная дата"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="p-2 border rounded"
+              placeholder="Конечная дата"
+            />
+          </div>
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="number"
+              placeholder="Мин. сумма (₽)"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              className="p-2 border rounded"
+            />
+            <input
+              type="number"
+              placeholder="Макс. сумма (₽)"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value)}
+              className="p-2 border rounded"
+            />
+          </div>
+        </div>
+        {filteredOrders.length === 0 ? (
           <div className="text-center py-20">
             <div className="inline-block bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl transform transition hover:scale-105">
               <div className="text-6xl mb-4">📭</div>
@@ -134,7 +251,7 @@ const OrdersPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
+            {currentOrders.map((order) => (
               <div
                 key={order.id}
                 className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-transform hover:scale-[1.005] relative overflow-hidden"
@@ -152,7 +269,6 @@ const OrdersPage = () => {
                     <p className="text-gray-600 dark:text-gray-400">
                       {formatDate(order.created_at)}
                     </p>
-                    {/* Адрес доставки под номером и датой */}
                     {order.delivery_type === "delivery" && (
                       <div className="mt-2">
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -260,7 +376,6 @@ const OrdersPage = () => {
                               "Неизвестен"
                             )}
                           </p>
-                          {/* Отображение адреса самовывоза для заказов с типом "доставка" и товарами без доставки */}
                           {order.delivery_type === "delivery" &&
                             item.product &&
                             !item.product.delivery_available && (
@@ -275,7 +390,6 @@ const OrdersPage = () => {
                                 </p>
                               </div>
                             )}
-                          {/* Отображение адреса самовывоза для заказов с типом "самовывоз" */}
                           {order.delivery_type === "pickup" && item.product && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
                               <p>
@@ -328,6 +442,24 @@ const OrdersPage = () => {
                 </div>
               </div>
             ))}
+            <div className="flex justify-center mt-8">
+              {Array.from(
+                { length: Math.ceil(filteredOrders.length / ordersPerPage) },
+                (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => paginate(i + 1)}
+                    className={`mx-1 px-3 py-1 rounded ${
+                      currentPage === i + 1
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              )}
+            </div>
           </div>
         )}
       </div>

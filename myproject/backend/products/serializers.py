@@ -1,21 +1,23 @@
 from rest_framework import serializers
-from .models import Product, Category, CartItem, Order, OrderItem
+from .models import Product, Category, CartItem, Order, OrderItem, Message, Review
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.contrib.auth import get_user_model
-from .models import Message
-from .models import Review
+from authentication.models import CustomUser 
+
 User = get_user_model()
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
+
 class FarmerSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'first_name', 'last_name', 'phone'] 
+        model = CustomUser
+        fields = ['id', 'first_name', 'last_name', 'average_rating']
+
 class ProductShortSerializer(serializers.ModelSerializer):
     delivery_available = serializers.BooleanField()
     seller_address = serializers.CharField()
@@ -26,49 +28,43 @@ class ProductShortSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'price', 'delivery_available', 'seller_address', 'farmer']
 
 class ProductSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
+    category = serializers.SerializerMethodField()
+    farmer = FarmerSerializer(read_only=True)
     is_owner = serializers.SerializerMethodField()
     editable = serializers.SerializerMethodField()
     delivery_available = serializers.BooleanField()
-    farmer_name = serializers.SerializerMethodField()
     seller_address = serializers.CharField(required=False, allow_blank=True)
-    # Добавляем поле farmer (id фермера)
-    farmer = serializers.PrimaryKeyRelatedField(
-        read_only=True  # Делаем его доступным только для чтения
-    )
-
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), 
-        source='category', 
+        queryset=Category.objects.all(),
+        source='category',
         write_only=True,
-        required=True  
+        required=True
     )
+    farmer_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'price', 'quantity', 
-            'unit', 'category', 'category_id', 'image', 
-            'farmer', 'farmer_name', 'created_at', 
-            'is_owner', 'editable', 'delivery_available','seller_address'
+            'id', 'name', 'description', 'price', 'quantity',
+            'unit', 'category', 'category_id', 'image',
+            'farmer', 'farmer_name', 'created_at',
+            'is_owner', 'editable', 'delivery_available', 'seller_address'
         ]
         read_only_fields = ('farmer', 'slug', 'editable')
 
-    def get_farmer_name(self, obj):
-        """Возвращает полное имя фермера"""
-        if obj.farmer:
-            return f"{obj.farmer.first_name} {obj.farmer.last_name}"
-        return "Неизвестный производитель"
+    def get_category(self, obj):
+        return {'id': obj.category.id, 'name': obj.category.name} if obj.category else None
 
+    def get_farmer_name(self, obj):
+        return f"{obj.farmer.first_name} {obj.farmer.last_name}" if obj.farmer else "Неизвестный производитель"
 
     def get_is_owner(self, obj):
         request = self.context.get('request')
         return request and request.user == obj.farmer
-    
+
     def get_editable(self, obj):
         request = self.context.get('request')
         return request and request.user == obj.farmer
-
 
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -90,8 +86,6 @@ class CartItemDetailSerializer(serializers.ModelSerializer):
     def get_total_price(self, obj):
         return obj.product.price * obj.quantity
 
-# serializers.py
-
 class OrderItemSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -105,7 +99,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     def get_product(self, obj):
         if obj.product:
             return ProductShortSerializer(obj.product).data
-        return None  # Если товар отсутствует, возвращаем null
+        return None
 
     def get_farmer(self, obj):
         if obj.product and obj.product.farmer:
@@ -115,6 +109,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
                 'phone': obj.product.farmer.phone or "Не указан"
             }
         return None
+
 class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
 
@@ -132,6 +127,7 @@ class UserSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
         return None
+
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_display = serializers.SerializerMethodField()
@@ -143,9 +139,9 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'user', 'delivery_type', 'payment_method', 'delivery_address', 
-            'pickup_address', 'total_amount', 'created_at', 'items', 'status', 
-            'status_display', 'canceled_by', 'canceled_by_role', 'cancel_reason'  # Removed 'total'
+            'id', 'user', 'delivery_type', 'payment_method', 'delivery_address',
+            'pickup_address', 'total_amount', 'created_at', 'items', 'status',
+            'status_display', 'canceled_by', 'canceled_by_role', 'cancel_reason'
         ]
         read_only_fields = ['user', 'total_amount', 'canceled_by']
 
@@ -176,38 +172,23 @@ class OrderSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             product_id = item_data.get('product')
             quantity = item_data.get('quantity', 1)
-            
             try:
                 product = Product.objects.get(id=product_id)
             except Product.DoesNotExist:
-                raise ValidationError(
-                    {'product': f'Продукт с ID {product_id} не найден'}
-                )
-
+                raise ValidationError({'product': f'Продукт с ID {product_id} не найден'})
             if product.quantity < quantity:
                 raise ValidationError(
                     f"Недостаточно товара '{product.name}'. Доступно: {product.quantity}"
                 )
-
             total += product.price * quantity
             products_to_update.append((product, quantity))
 
         with transaction.atomic():
-            order = Order.objects.create(
-                user=user,
-                total_amount=total,
-                **validated_data
-            )
-
+            order = Order.objects.create(user=user, total_amount=total, **validated_data)
             OrderItem.objects.bulk_create([
-                OrderItem(
-                    order=order,
-                    product=product,
-                    quantity=quantity,
-                    price=product.price
-                ) for product, quantity in products_to_update
+                OrderItem(order=order, product=product, quantity=quantity, price=product.price)
+                for product, quantity in products_to_update
             ])
-
             for product, quantity in products_to_update:
                 product.quantity = F('quantity') - quantity
                 product.save()
@@ -215,27 +196,27 @@ class OrderSerializer(serializers.ModelSerializer):
         return order
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    average_rating = serializers.FloatField(read_only=True)  # Добавлено поле среднего рейтинга
+    average_rating = serializers.FloatField(read_only=True)
 
     class Meta:
-        model = User  
+        model = CustomUser
         fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating']
         extra_kwargs = {
             'show_phone': {'required': False, 'allow_null': True}
         }
+
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.PrimaryKeyRelatedField(read_only=True)
     recipient = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
-        error_messages={
-            'does_not_exist': 'Пользователь-получатель не найден.'
-        }
+        error_messages={'does_not_exist': 'Пользователь-получатель не найден.'}
     )
 
     class Meta:
         model = Message
         fields = ["id", "sender", "recipient", "content", "timestamp"]
         read_only_fields = ["sender", "timestamp"]
+
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)
     author_name = serializers.SerializerMethodField()
