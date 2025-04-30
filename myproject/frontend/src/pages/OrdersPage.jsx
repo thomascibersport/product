@@ -260,6 +260,21 @@ const OrdersPage = () => {
                               "Неизвестен"
                             )}
                           </p>
+                          {/* Отображение адреса самовывоза для заказов с типом "доставка" и товарами без доставки */}
+                          {order.delivery_type === "delivery" &&
+                            item.product &&
+                            !item.product.delivery_available && (
+                              <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
+                                <p>
+                                  Адрес самовывоза для этого товара:{" "}
+                                  {item.product.seller_address || "Не указан"}
+                                </p>
+                                <p>
+                                  Контакты:{" "}
+                                  {item.product.farmer?.phone || "Не указаны"}
+                                </p>
+                              </div>
+                            )}
                           {/* Отображение адреса самовывоза для заказов с типом "самовывоз" */}
                           {order.delivery_type === "pickup" && item.product && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">

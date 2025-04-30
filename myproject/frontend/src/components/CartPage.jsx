@@ -161,7 +161,7 @@ const CartPage = () => {
 
   // Разделяем товары на две группы: с доставкой и без доставки
   const handleCreateOrder = async () => {
-    const token = Cookies.get("token");
+    const token = Cookies.get("token"); // Добавить эту строку
     if (!token) {
       navigate("/login");
       return;
@@ -179,51 +179,30 @@ const CartPage = () => {
     }
 
     try {
-      // Группировка товаров по продавцам
-      const itemsBySeller = cartItems.reduce((acc, item) => {
-        const sellerId = item.product.farmer.id;
-        if (!acc[sellerId]) {
-          acc[sellerId] = [];
-        }
-        acc[sellerId].push(item);
-        return acc;
-      }, {});
+      const orderData = {
+        delivery_type: deliveryType,
+        payment_method: paymentType,
+        delivery_address: deliveryType === "delivery" ? deliveryAddress : null,
+        pickup_address: deliveryType === "pickup" ? "ул. Примерная, 123 (Пункт выдачи)" : null,
+        items: cartItems.map((item) => ({
+          product: item.product.id,
+          quantity: item.quantity,
+        })),
+      };
 
-      // Создание заказов для каждого продавца
-      const orderPromises = Object.keys(itemsBySeller).map(async (sellerId) => {
-        const sellerItems = itemsBySeller[sellerId];
-        const orderData = {
-          delivery_type: deliveryType,
-          payment_method: paymentType,
-          delivery_address:
-            deliveryType === "delivery" ? deliveryAddress : null,
-          pickup_address:
-            deliveryType === "pickup"
-              ? "ул. Примерная, 123 (Пункт выдачи)"
-              : null,
-          items: sellerItems.map((item) => ({
-            product: item.product.id,
-            quantity: item.quantity,
-          })),
-        };
-
-        return axios.post("http://localhost:8000/api/orders/", orderData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      await axios.post("http://localhost:8000/api/orders/", orderData, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Ожидание завершения всех запросов
-      await Promise.all(orderPromises);
 
       // Очистка корзины
       await axios.delete("http://localhost:8000/api/cart/clear/", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCartItems([]);
-      alert("Заказы успешно оформлены!");
+      alert("Заказ успешно оформлен!");
       navigate("/orders");
     } catch (error) {
-      let errorMessage = "Ошибка оформления заказов";
+      let errorMessage = "Ошибка оформления заказа";
       if (error.response) {
         if (error.response.data.items) {
           errorMessage = error.response.data.items.join("\n");
@@ -344,18 +323,7 @@ const CartPage = () => {
                     </button>
                   </div>
                 </div>
-                {cartItems.some((item, index, arr) =>
-                  arr.find(
-                    (i) => i.product.farmer.id !== item.product.farmer.id
-                  )
-                ) && (
-                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm text-blue-700 dark:text-blue-200">
-                      Товары от разных продавцов будут оформлены как отдельные
-                      заказы.
-                    </p>
-                  </div>
-                )}
+
                 <div className="flex flex-col items-end justify-between space-y-4">
                   <button
                     onClick={() => removeItem(item.id)}
@@ -655,5 +623,6 @@ const CartPage = () => {
     </div>
   );
 };
+
 
 export default CartPage;
