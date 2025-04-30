@@ -11,8 +11,9 @@ const SellerOrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showCancelForm, setShowCancelForm] = useState(null); // Для управления отображением формы
-  const [cancelReason, setCancelReason] = useState(""); // Для хранения причины отмены
+  const [showCancelForm, setShowCancelForm] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [userId, setUserId] = useState(null);
   const navigate = useNavigate();
 
   const waveAnimation = `
@@ -54,6 +55,13 @@ const SellerOrdersPage = () => {
       }
 
       try {
+        // Fetch current user's ID
+        const userResponse = await axios.get("http://localhost:8000/api/users/me/", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUserId(userResponse.data.id);
+
+        // Fetch seller orders
         const response = await axios.get(
           "http://localhost:8000/api/orders/seller/",
           {
@@ -110,7 +118,7 @@ const SellerOrdersPage = () => {
         { reason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const updatedOrder = response.data; // Получаем полный обновленный заказ
+      const updatedOrder = response.data;
       const updatedOrders = orders.map((order) =>
         order.id === orderId ? updatedOrder : order
       );
@@ -123,7 +131,6 @@ const SellerOrdersPage = () => {
       console.error("Ошибка:", error);
     }
   };
-
 
   const formatDate = (dateString) =>
     moment(dateString).format("DD.MM.YYYY HH:mm");
@@ -237,13 +244,9 @@ const SellerOrdersPage = () => {
                   </div>
                 </div>
                 <div className="mb-4">
-                  {order.delivery_type === "delivery" ? (
+                  {order.delivery_type === "delivery" && (
                     <p className="text-gray-600 dark:text-gray-400">
                       Адрес доставки: {order.delivery_address}
-                    </p>
-                  ) : (
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Пункт самовывоза: {order.pickup_address}
                     </p>
                   )}
                 </div>
@@ -252,31 +255,47 @@ const SellerOrdersPage = () => {
                     Товары:
                   </h3>
                   <div className="space-y-4">
-                    {order.items.map((item) => (
-                      <div
-                        key={item.product.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700"
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
-                            {item.product.name}
-                          </p>
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Цена: {item.price} ₽
-                              </p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Количество: {item.quantity}
+                    {order.items
+                      .filter((item) => item.product.farmer.id === userId)
+                      .map((item) => (
+                        <div
+                          key={item.product.id}
+                          className={`flex items-center justify-between p-3 rounded-lg ${
+                            item.product && !item.product.delivery_available
+                              ? "bg-rose-100 dark:bg-rose-900/20 border-2 border-rose-200 dark:border-rose-800"
+                              : "bg-gray-50 dark:bg-gray-700"
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
+                              {item.product.name}
+                            </p>
+                            {item.product && !item.product.delivery_available && (
+                              <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
+                                <p>
+                                  Адрес продавца: {item.product.seller_address || "Не указан"}
+                                </p>
+                                <p>
+                                  Контакты: {item.product.farmer?.phone || "Не указаны"}
+                                </p>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Цена: {item.price} ₽
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Количество: {item.quantity}
+                                </p>
+                              </div>
+                              <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 ml-4">
+                                {(item.quantity * item.price).toFixed(2)} ₽
                               </p>
                             </div>
-                            <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 ml-4">
-                              {(item.quantity * item.price).toFixed(2)} ₽
-                            </p>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">

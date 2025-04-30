@@ -152,6 +152,17 @@ const OrdersPage = () => {
                     <p className="text-gray-600 dark:text-gray-400">
                       {formatDate(order.created_at)}
                     </p>
+                    {/* Адрес доставки под номером и датой */}
+                    {order.delivery_type === "delivery" && (
+                      <div className="mt-2">
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                          Адрес доставки:
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          {order.delivery_address || "Не указан"}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2 mt-4 md:mt-0">
                     <div className="flex items-center gap-2">
@@ -249,10 +260,11 @@ const OrdersPage = () => {
                               "Неизвестен"
                             )}
                           </p>
-                          {item.product && !item.product.delivery_available && (
+                          {/* Отображение адреса самовывоза для заказов с типом "самовывоз" */}
+                          {order.delivery_type === "pickup" && item.product && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
                               <p>
-                                Адрес продавца:{" "}
+                                Адрес самовывоза:{" "}
                                 {item.product.seller_address || "Не указан"}
                               </p>
                               <p>

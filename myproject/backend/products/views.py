@@ -213,6 +213,44 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Order.objects.filter(items__product__farmer=self.request.user).distinct()
         return Order.objects.filter(user=self.request.user)
 
+    def create(self, request, *args, **kwargs):
+        items_data = request.data.get('items', [])
+        user = request.user
+
+        # Группировка товаров по продавцам
+        items_by_seller = {}
+        for item_data in items_data:
+            product_id = item_data.get('product')
+            product = Product.objects.get(id=product_id)
+            seller_id = product.farmer.id
+            if seller_id not in items_by_seller:
+                items_by_seller[seller_id] = []
+            items_by_seller[seller_id].append(item_data)
+
+        orders = []
+        for seller_id, seller_items in items_by_seller.items():
+            # Рассчитываем общую сумму для каждого заказа
+            total_amount = 0
+            for item in seller_items:
+                product = Product.objects.get(id=item['product'])
+                quantity = item.get('quantity', 1)
+                total_amount += product.price * quantity
+
+            order_data = {
+                'user': user.id,
+                'delivery_type': request.data.get('delivery_type'),
+                'payment_method': request.data.get('payment_method'),
+                'delivery_address': request.data.get('delivery_address'),
+                'total_amount': total_amount,
+                'items': seller_items
+            }
+            serializer = OrderSerializer(data=order_data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            order = serializer.save()
+            orders.append(order)
+
+        return Response([OrderSerializer(order).data for order in orders], status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['get'])
     def seller_orders(self, request):
         try:
@@ -228,13 +266,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         order = get_object_or_404(Order, pk=pk)
         user = request.user
         reason = request.data.get('reason', '')
 
-        # Проверка: если пользователь — покупатель или продавец
         if order.user == user or order.items.filter(product__farmer=user).exists():
             if order.status != 'processing':
                 return Response(
@@ -243,7 +280,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
             order.status = 'canceled'
             order.cancel_reason = reason
-            order.canceled_by = user  # Устанавливаем, кто отменил заказ
+            order.canceled_by = user
             order.save()
             serializer = self.get_serializer(order)
             return Response(serializer.data)
@@ -253,22 +290,25 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'])
     def confirm(self, request, pk=None):
         order = get_object_or_404(Order, pk=pk)
         seller = request.user
-        if not order.items.filter(product__farmer=seller).exists():
+        items = order.items.filter(product__farmer=seller)
+        if not items.exists():
             return Response(
                 {'error': 'Вы не можете подтвердить этот заказ'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        order.status = 'confirmed'
+        items.update(status='confirmed')
+        # Проверяем, все ли элементы подтверждены
+        if order.items.filter(status='processing').exists():
+            order.status = 'processing'
+        else:
+            order.status = 'confirmed'
         order.save()
         serializer = self.get_serializer(order)
         return Response(serializer.data)
-
-    def perform_create(self, serializer):
-        serializer.save()
 class MyProductsList(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
