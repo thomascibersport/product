@@ -6,6 +6,8 @@ import Header from "../components/Header";
 import { FaEnvelope } from "react-icons/fa";
 import Modal from "react-modal";
 import { AuthContext } from "../AuthContext";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 Modal.setAppElement("#root");
 
@@ -61,29 +63,29 @@ const UserProfile = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!token) {
-      alert("Пожалуйста, войдите в систему.");
+      toast.error("Пожалуйста, войдите в систему.");
       return;
     }
     try {
       await axios.post(
-        `http://localhost:8000/api/users/${id}/reviews/`,
-        { content: message },
+        `http://localhost:8000/api/messages/send/`,
+        { recipient: id, content: message },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMessage("");
       setIsModalOpen(false);
-      alert("Сообщение отправлено!");
+      toast.success("Сообщение отправлено!");
       setHasMessages(true);
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);
-      alert("Не удалось отправить сообщение: " + err.message);
+      toast.error("Не удалось отправить сообщение: " + err.message);
     }
   };
 
   const handleSendReview = async (e) => {
     e.preventDefault();
     if (!token) {
-      alert("Пожалуйста, войдите в систему.");
+      toast.error("Пожалуйста, войдите в систему.");
       return;
     }
     try {
@@ -94,7 +96,6 @@ const UserProfile = () => {
       );
       const newReview = response.data;
       setReviews([...reviews, newReview]);
-      // Fetch updated user data to get the new average rating
       const updatedUserResponse = await axios.get(
         `http://localhost:8000/api/users/${id}/`
       );
@@ -103,19 +104,19 @@ const UserProfile = () => {
       setReviewRating(0);
       setHoverRating(0);
       setIsReviewModalOpen(false);
-      alert("Отзыв отправлен!");
+      toast.success("Отзыв отправлен!");
     } catch (err) {
       if (err.response?.status === 400) {
-        alert("Вы уже оставили отзыв этому пользователю.");
+        toast.error("Вы уже оставили отзыв этому пользователю.");
       } else {
-        alert("Не удалось отправить отзыв: " + err.message);
+        toast.error("Не удалось отправить отзыв: " + err.message);
       }
     }
   };
 
   const handleDeleteReview = async (reviewId) => {
     if (!token) {
-      alert("Пожалуйста, войдите в систему.");
+      toast.error("Пожалуйста, войдите в систему.");
       return;
     }
     try {
@@ -124,20 +125,50 @@ const UserProfile = () => {
       });
       const updatedReviews = reviews.filter((review) => review.id !== reviewId);
       setReviews(updatedReviews);
-      // Fetch updated user data to get the new average rating
       const updatedUserResponse = await axios.get(
         `http://localhost:8000/api/users/${id}/`
       );
       setUser(updatedUserResponse.data);
-      alert("Отзыв успешно удален!");
+      toast.success("Отзыв успешно удален!");
     } catch (err) {
       console.error("Ошибка при удалении отзыва:", err);
       if (err.response?.status === 403) {
-        alert("Вы не можете удалить этот отзыв.");
+        toast.error("Вы не можете удалить этот отзыв.");
       } else {
-        alert("Не удалось удалить отзыв: " + err.message);
+        toast.error("Не удалось удалить отзыв: " + err.message);
       }
     }
+  };
+
+  const confirmDeleteReview = (reviewId) => {
+    toast(
+      <div>
+        <p>Вы уверены, что хотите удалить этот отзыв?</p>
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => {
+              handleDeleteReview(reviewId);
+              toast.dismiss();
+            }}
+            className="px-3 py-1 bg-red-600 text-white rounded mr-2"
+          >
+            Да
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="px-3 py-1 bg-gray-300 text-gray-800 rounded"
+          >
+            Нет
+          </button>
+        </div>
+      </div>,
+      {
+        autoClose: false,
+        closeOnClick: false,
+        closeButton: false,
+        draggable: false,
+      }
+    );
   };
 
   if (loading)
@@ -180,9 +211,19 @@ const UserProfile = () => {
                 </span>
               </div>
             )}
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white text-center">
-              {user.first_name} {user.last_name}
-            </h1>
+            <div className="flex items-center space-x-4">
+              <h1 className="text-4xl font-bold text-gray-800 dark:text-white text-center">
+                {user.first_name} {user.last_name}
+              </h1>
+              {user.average_rating > 0 && (
+                <div className="flex items-center">
+                  <span className="ml-2 text-gray-800 dark:text-white text-2xl">
+                    {user.average_rating.toFixed(1) || "0.0"}
+                    <span className="text-yellow-500 text-3xl"> ★</span>
+                  </span>
+                </div>
+              )}
+            </div>
             {token && (
               <button
                 onClick={() => setIsModalOpen(true)}
@@ -248,14 +289,6 @@ const UserProfile = () => {
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
               Отзывы
             </h2>
-            {user.average_rating > 0 && (
-              <div className="flex items-center">
-                <span className="text-yellow-500 text-2xl">★</span>
-                <span className="ml-2 text-gray-800 dark:text-white">
-                  {user.average_rating.toFixed(1) || "0.0"}
-                </span>
-              </div>
-            )}
           </div>
           {reviews.length > 0 ? (
             <div className="space-y-4">
@@ -293,7 +326,7 @@ const UserProfile = () => {
                     currentUser.id &&
                     String(review.author) === String(currentUser.id) && (
                       <button
-                        onClick={() => handleDeleteReview(review.id)}
+                        onClick={() => confirmDeleteReview(review.id)}
                         className="mt-2 text-red-500 hover:text-red-600"
                       >
                         Удалить
@@ -410,6 +443,7 @@ const UserProfile = () => {
           </div>
         </form>
       </Modal>
+      <ToastContainer />
     </div>
   );
 };

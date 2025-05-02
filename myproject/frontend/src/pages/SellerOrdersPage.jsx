@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/ru";
 import "../index.css";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const SellerOrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -71,14 +73,12 @@ const SellerOrdersPage = () => {
     fetchSellerOrders();
   }, [navigate]);
 
-  const confirmOrder = async (orderId) => {
+  const confirmOrderAction = async (orderId) => {
     const token = Cookies.get("token");
     if (!token) {
       navigate("/login");
       return;
     }
-
-    if (!window.confirm("Вы уверены, что хотите подтвердить заказ?")) return;
 
     try {
       const response = await axios.post(
@@ -90,9 +90,9 @@ const SellerOrdersPage = () => {
         order.id === orderId ? { ...order, status: "confirmed" } : order
       );
       setOrders(updatedOrders);
-      alert("Заказ успешно подтвержден");
+      toast.success("Заказ успешно подтвержден");
     } catch (error) {
-      alert("Ошибка при подтверждении заказа");
+      toast.error("Ошибка при подтверждении заказа");
       console.error("Ошибка:", error);
     }
   };
@@ -117,11 +117,42 @@ const SellerOrdersPage = () => {
       setOrders(updatedOrders);
       setShowCancelForm(null);
       setCancelReason("");
-      alert("Заказ успешно отменен");
+      toast.success("Заказ успешно отменен");
     } catch (error) {
-      alert("Ошибка при отмене заказа");
+      toast.error("Ошибка при отмене заказа");
       console.error("Ошибка:", error);
     }
+  };
+
+  const confirmOrder = (orderId) => {
+    toast(
+      <div>
+        <p>Вы уверены, что хотите подтвердить заказ?</p>
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => {
+              confirmOrderAction(orderId);
+              toast.dismiss();
+            }}
+            className="px-3 py-1 bg-green-600 text-white rounded mr-2"
+          >
+            Да
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="px-3 py-1 bg-gray-300 text-gray-800 rounded"
+          >
+            Нет
+          </button>
+        </div>
+      </div>,
+      {
+        autoClose: false,
+        closeOnClick: false,
+        closeButton: false,
+        draggable: false,
+      }
+    );
   };
 
   const formatDate = (dateString) =>
@@ -144,6 +175,7 @@ const SellerOrdersPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <style>{waveAnimation}</style>
       <Header />
+      <ToastContainer />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           📦 Заказы на мои товары
@@ -260,7 +292,6 @@ const SellerOrdersPage = () => {
                           <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
                             {item.product.name}
                           </p>
-                          {/* Display seller address and contacts for items without delivery */}
                           {item.product && !item.product.delivery_available && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
                               <p>

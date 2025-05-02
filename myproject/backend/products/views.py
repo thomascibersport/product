@@ -169,7 +169,7 @@ class CartItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         product_id = self.request.data.get('product')
-        quantity = self.request.data.get('quantity', 1)
+        quantity = int(self.request.data.get('quantity', 1))
 
         try:
             product = Product.objects.get(id=product_id)
@@ -184,6 +184,7 @@ class CartItemViewSet(viewsets.ModelViewSet):
                 raise ValidationError(
                     'Нельзя добавлять товары от разных продавцов в одну корзину.'
                 )
+
         cart_item, created = CartItem.objects.get_or_create(
             user=self.request.user,
             product=product,
@@ -191,17 +192,7 @@ class CartItemViewSet(viewsets.ModelViewSet):
         )
         
         if not created:
-            cart_item.quantity += int(quantity)
-            cart_item.save()
-        # Обновляем количество если товар уже в корзине
-        cart_item, created = CartItem.objects.get_or_create(
-            user=self.request.user,
-            product=product,
-            defaults={'quantity': quantity}
-        )
-        
-        if not created:
-            cart_item.quantity += int(quantity)
+            cart_item.quantity += quantity
             cart_item.save()
 
     def update(self, request, *args, **kwargs):
@@ -601,6 +592,7 @@ class SellerStatisticsView(APIView):
             'total_quantity': aggregation['total_quantity'] or 0,
             'total_revenue': aggregation['total_revenue'] or 0
         }
+
     def get_purchases(self, seller):
         return OrderItem.objects.filter(
             product__farmer=seller

@@ -13,6 +13,8 @@ import ReactCrop from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { AuthContext } from "../AuthContext";
 import "../index.css";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function EditProfilePage() {
   const navigate = useNavigate();
@@ -25,7 +27,7 @@ function EditProfilePage() {
     height: 200,
     aspect: 1,
   });
-  const { setAvatar } = useContext(AuthContext);
+  const { setAvatar, setUser } = useContext(AuthContext);
   const [completedCrop, setCompletedCrop] = useState(null);
   const imageRef = useRef(null);
   const [croppedBlob, setCroppedBlob] = useState(null);
@@ -40,7 +42,7 @@ function EditProfilePage() {
   const [lastName, setLastName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [phone, setPhone] = useState("");
-  const [showPhone, setShowPhone] = useState(true); // Добавлено состояние для чекбокса
+  const [showPhone, setShowPhone] = useState(true);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -50,7 +52,6 @@ function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Обработчик изменения файла для аватара
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const reader = new FileReader();
@@ -71,8 +72,10 @@ function EditProfilePage() {
       setSrc(null);
       setCroppedBlob(null);
       setCompletedCrop(null);
+      toast.success("Аватар успешно загружен!");
     } catch (error) {
       console.error("Ошибка загрузки аватара:", error);
+      toast.error("Ошибка загрузки аватара");
     }
   };
 
@@ -107,7 +110,7 @@ function EditProfilePage() {
 
   const handleCropConfirm = async () => {
     if (!imageRef.current || !completedCrop) {
-      alert("Сначала выберите и обрежьте изображение!");
+      toast.error("Сначала выберите и обрежьте изображение!");
       return;
     }
     try {
@@ -118,10 +121,10 @@ function EditProfilePage() {
       );
       setCroppedBlob(blob);
       setCroppedPreview(URL.createObjectURL(blob));
-      alert("Изображение готово к загрузке!");
+      toast.success("Изображение готово к загрузке!");
     } catch (error) {
       console.error("Ошибка при обрезке:", error);
-      alert("Ошибка при обработке изображения");
+      toast.error("Ошибка при обработке изображения");
     }
   };
 
@@ -142,7 +145,7 @@ function EditProfilePage() {
         setLastName(response.data.last_name);
         setMiddleName(response.data.middle_name);
         setPhone(response.data.phone);
-        setShowPhone(response.data.show_phone); // Теперь будет получать корректное значение
+        setShowPhone(response.data.show_phone);
         setPreview(response.data.avatar || "/media/default-avatar.png");
         setLoading(false);
       } catch (err) {
@@ -187,32 +190,37 @@ function EditProfilePage() {
       };
       console.log("Отправляемые данные:", profileData);
       await updateProfile(token, profileData);
-      alert("Профиль успешно обновлён!");
-      const fetchUserData = async () => {
-        const response = await getUser(token);
-        setUsername(response.data.username);
-        setEmail(response.data.email);
-        setFirstName(response.data.first_name);
-        setLastName(response.data.last_name);
-        setMiddleName(response.data.middle_name);
-        setPhone(response.data.phone);
-        setShowPhone(response.data.show_phone); // Используем напрямую, без !== false
-        setPreview(response.data.avatar || "/media/default-avatar.png");
-      };
-      await fetchUserData();
+      toast.success("Профиль успешно обновлён!");
+      
+      // Получаем обновленные данные пользователя с сервера
+      const response = await getUser(token);
+      const updatedUser = response.data;
+      
+      // Обновляем глобальное состояние в AuthContext
+      setUser(updatedUser);
+      
+      // Обновляем локальные состояния
+      setUsername(updatedUser.username);
+      setEmail(updatedUser.email);
+      setFirstName(updatedUser.first_name);
+      setLastName(updatedUser.last_name);
+      setMiddleName(updatedUser.middle_name);
+      setPhone(updatedUser.phone);
+      setShowPhone(updatedUser.show_phone);
+      setPreview(updatedUser.avatar || "/media/default-avatar.png");
     } catch (err) {
       console.error("Ошибка обновления профиля:", err);
-      alert("Не удалось обновить профиль: " + err.message);
+      toast.error("Не удалось обновить профиль: " + err.message);
     }
   };
 
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword || !confirmNewPassword) {
-      alert("Заполните все поля для смены пароля.");
+      toast.error("Заполните все поля для смены пароля.");
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      alert("Новый пароль и подтверждение не совпадают.");
+      toast.error("Новый пароль и подтверждение не совпадают.");
       return;
     }
     try {
@@ -226,13 +234,13 @@ function EditProfilePage() {
         new_password: newPassword,
       });
       console.log("Ответ смены пароля:", response);
-      alert("Пароль успешно изменён!");
+      toast.success("Пароль успешно изменён!");
       setOldPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
     } catch (err) {
       console.error("Ошибка смены пароля:", err);
-      alert(
+      toast.error(
         "Не удалось изменить пароль. Проверьте правильность ввода старого пароля."
       );
     }
@@ -262,7 +270,6 @@ function EditProfilePage() {
           ✏️ Редактирование профиля
         </h1>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-8">
-          {/* Секция аватарки */}
           <div className="space-y-6">
             <div className="flex flex-col items-center gap-6">
               <div className="relative group cursor-pointer">
@@ -364,7 +371,6 @@ function EditProfilePage() {
             </div>
           </div>
 
-          {/* Основная форма */}
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -434,7 +440,6 @@ function EditProfilePage() {
                 />
               </div>
             </div>
-            {/* Чекбокс для видимости телефона */}
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -457,7 +462,6 @@ function EditProfilePage() {
             </button>
           </div>
 
-          {/* Смена пароля */}
           <div className="space-y-6 pt-8 border-t border-gray-200 dark:border-gray-700">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white">
               🔒 Смена пароля
@@ -532,6 +536,7 @@ function EditProfilePage() {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 }

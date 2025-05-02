@@ -38,6 +38,7 @@ const CartPage = () => {
   const [deliveryType, setDeliveryType] = useState("delivery");
   const [paymentType, setPaymentType] = useState("cash");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [errorMessage, setErrorMessage] = useState(""); // Состояние для сообщения об ошибке
   const navigate = useNavigate();
 
   const [showCardModal, setShowCardModal] = useState(false);
@@ -52,7 +53,6 @@ const CartPage = () => {
   const pickupItems = cartItems.filter(
     (item) => !item.product.delivery_available
   );
-  // Проверяем, есть ли в корзине хотя бы один товар с доставкой
   const hasDeliveryAvailable = cartItems.some(
     (item) => item.product.delivery_available
   );
@@ -70,20 +70,20 @@ const CartPage = () => {
         { product: productId, quantity },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Обновляем корзину после успешного добавления
       setCartItems((prevItems) => [...prevItems, response.data]);
     } catch (error) {
       if (error.response && error.response.data) {
-        alert(
+        setError(
           error.response.data.detail ||
             "Ошибка при добавлении товара в корзину: " +
               JSON.stringify(error.response.data)
         );
       } else {
-        alert("Ошибка при добавлении товара в корзину");
+        setError("Ошибка при добавлении товара в корзину");
       }
     }
   };
+
   useEffect(() => {
     const fetchCartItems = async () => {
       const token = Cookies.get("token");
@@ -106,7 +106,6 @@ const CartPage = () => {
     fetchCartItems();
   }, [navigate]);
 
-  // Если выбран тип доставки "delivery", но в корзине нет товаров с доставкой, переключаем на самовывоз
   useEffect(() => {
     if (deliveryType === "delivery" && !hasDeliveryAvailable) {
       setDeliveryType("pickup");
@@ -150,9 +149,7 @@ const CartPage = () => {
   };
 
   const calculateTotal = () => {
-    return cartItems
-      .reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-      .toFixed(2);
+    return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   };
 
   const handleCardNumberChange = (e) => {
@@ -172,36 +169,40 @@ const CartPage = () => {
     const [month, year] = expiryDate.split("/").map(Number);
 
     if (!/^\d{2}\/\d{2}$/.test(expiryDate)) {
-      alert("Неверный формат срока действия карты");
+      setErrorMessage("Неверный формат срока действия карты");
       return false;
     }
     if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      alert("Срок действия карты истёк");
+      setErrorMessage("Срок действия карты истёк");
       return false;
     }
     if (cvv.length !== (cardType === "amex" ? 4 : 3)) {
-      alert("Неверный CVV код");
+      setErrorMessage("Неверный CVV код");
       return false;
     }
     return true;
   };
 
-  // Разделяем товары на две группы: с доставкой и без доставки
   const handleCreateOrder = async () => {
-    const token = Cookies.get("token"); // Добавить эту строку
+    const token = Cookies.get("token");
     if (!token) {
       navigate("/login");
       return;
     }
 
     if (cartItems.length === 0) {
-      alert("Корзина пуста!");
+      setErrorMessage("Корзина пуста!");
       return;
     }
 
-    // Проверка адреса для доставки
+    const total = calculateTotal();
+    if (total < 2000) {
+      setErrorMessage(`Минимальная сумма заказа 2000 рублей. Сейчас в корзине на ${total.toFixed(2)} рублей.`);
+      return;
+    }
+
     if (deliveryType === "delivery" && !deliveryAddress.trim()) {
-      alert("Пожалуйста, укажите адрес доставки");
+      setErrorMessage("Пожалуйста, укажите адрес доставки");
       return;
     }
 
@@ -211,9 +212,7 @@ const CartPage = () => {
         payment_method: paymentType,
         delivery_address: deliveryType === "delivery" ? deliveryAddress : null,
         pickup_address:
-          deliveryType === "pickup"
-            ? "ул. Примерная, 123 (Пункт выдачи)"
-            : null,
+          deliveryType === "pickup" ? "ул. Примерная, 123 (Пункт выдачи)" : null,
         items: cartItems.map((item) => ({
           product: item.product.id,
           quantity: item.quantity,
@@ -224,12 +223,10 @@ const CartPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Очистка корзины
       await axios.delete("http://localhost:8000/api/cart/clear/", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCartItems([]);
-      alert("Заказ успешно оформлен!");
       navigate("/orders");
     } catch (error) {
       let errorMessage = "Ошибка оформления заказа";
@@ -242,7 +239,7 @@ const CartPage = () => {
           errorMessage = error.response.data.detail || errorMessage;
         }
       }
-      alert(errorMessage);
+      setErrorMessage(errorMessage);
       console.error("Детали ошибки:", error.response?.data);
     }
   };
@@ -277,7 +274,6 @@ const CartPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
-
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           🛒 Ваша корзина
@@ -389,9 +385,19 @@ const CartPage = () => {
                   Итого:
                 </span>
                 <span className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  {calculateTotal()} ₽
+                  {calculateTotal().toFixed(2)} ₽
                 </span>
               </div>
+              {calculateTotal() < 2000 && (
+                <p className="text-red-500 text-sm mt-2">
+                  Минимальная сумма заказа 2000 рублей. Добавьте товаров ещё на {(2000 - calculateTotal()).toFixed(2)} рублей.
+                </p>
+              )}
+              {errorMessage && (
+                <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 rounded-lg text-red-700 dark:text-red-200">
+                  <p className="text-sm">{errorMessage}</p>
+                </div>
+              )}
 
               <div className="space-y-6">
                 <div className="space-y-4">

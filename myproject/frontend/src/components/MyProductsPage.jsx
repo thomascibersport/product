@@ -4,6 +4,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const AddProductModal = React.memo(
   ({
@@ -12,8 +14,6 @@ const AddProductModal = React.memo(
     onSubmit,
     formState,
     formErrors,
-    successMessage,
-    formError,
     categories,
     measurementUnits,
     isEditing = false,
@@ -28,7 +28,6 @@ const AddProductModal = React.memo(
       setLocalImagePreview(imagePreview);
     }, [formState, imagePreview]);
 
-    // Define handleChange to update localState
     const handleChange = useCallback((field, value) => {
       setLocalState((prev) => ({ ...prev, [field]: value }));
     }, []);
@@ -51,6 +50,7 @@ const AddProductModal = React.memo(
       },
       [localState, onSubmit]
     );
+
     const handleOverlayClick = useCallback(
       (e) => {
         if (e.target === e.currentTarget) {
@@ -59,12 +59,13 @@ const AddProductModal = React.memo(
       },
       [onClose]
     );
+
     if (!isOpen) return null;
 
     return (
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
-        onClick={handleOverlayClick} // Обработчик клика на overlay
+        onClick={handleOverlayClick}
       >
         <div
           ref={modalRef}
@@ -97,20 +98,7 @@ const AddProductModal = React.memo(
               </button>
             </div>
 
-            {successMessage && (
-              <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl">
-                ✅ {successMessage}
-              </div>
-            )}
-
-            {formError && (
-              <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl">
-                ❌ {formError}
-              </div>
-            )}
-
             <form onSubmit={handleSubmitForm} className="space-y-4">
-              {/* Остальная часть формы остается без изменений */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-900 dark:text-gray-300 mb-1">
@@ -132,37 +120,6 @@ const AddProductModal = React.memo(
                   {formErrors.name && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                       ⚠️ {formErrors.name}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
-                    Цена за единицу
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={localState.price}
-                      onChange={(e) => {
-                        if (/^\d*\.?\d*$/.test(e.target.value))
-                          handleChange("price", e.target.value);
-                      }}
-                      placeholder="0.00"
-                      required
-                      className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                        formErrors.price
-                          ? "border-red-500"
-                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-16`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                      ₽ / {localState.unit || "ед."}
-                    </span>
-                  </div>
-                  {formErrors.price && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      ⚠️ {formErrors.price}
                     </p>
                   )}
                 </div>
@@ -290,6 +247,9 @@ const AddProductModal = React.memo(
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
                   >
+                    <option value="" disabled>
+                      Выберите категорию
+                    </option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
@@ -420,7 +380,7 @@ const MyProductsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null); // Added imagePreview state
+  const [imagePreview, setImagePreview] = useState(null);
   const navigate = useNavigate();
 
   const [formState, setFormState] = useState({
@@ -437,11 +397,20 @@ const MyProductsPage = () => {
   });
 
   const [categories, setCategories] = useState([]);
-  const [successMessage, setSuccessMessage] = useState("");
   const [formErrors, setFormErrors] = useState({});
-  const [formError, setFormError] = useState("");
 
-  const measurementUnits = ["шт", "кг", "литр"];
+  const measurementUnits = [
+    "шт",
+    "кг",
+    "литр",
+    "грамм",
+    "упаковка",
+    "бутылка",
+    "ящик",
+    "метр",
+    "пучок",
+    "банка",
+  ];
 
   useEffect(() => {
     const token = Cookies.get("token");
@@ -472,6 +441,7 @@ const MyProductsPage = () => {
       })
       .catch(console.error);
   }, [navigate]);
+
   const resetFormState = useCallback(() => {
     setFormState({
       name: "",
@@ -487,7 +457,7 @@ const MyProductsPage = () => {
     });
     setImagePreview(null);
   }, [categories, measurementUnits]);
-  // Define handleEdit in MyProductsPage
+
   const handleEdit = useCallback(
     (product) => {
       setFormState({
@@ -510,12 +480,15 @@ const MyProductsPage = () => {
 
   const handleSubmit = useCallback(
     async (formData) => {
+      if (!formData.category || formData.category === "") {
+        setFormErrors({ category: "Категория обязательна" });
+        return;
+      }
+
       setFormErrors({});
-      setFormError("");
-      setSuccessMessage("");
       const token = Cookies.get("token");
       if (!token) {
-        setFormError("Требуется авторизация");
+        toast.error("Требуется авторизация");
         return;
       }
 
@@ -579,7 +552,7 @@ const MyProductsPage = () => {
         });
         setImagePreview(null);
         setIsModalOpen(false);
-        setSuccessMessage(
+        toast.success(
           formData.id
             ? "Продукт успешно обновлен!"
             : "Продукт успешно добавлен!"
@@ -598,17 +571,17 @@ const MyProductsPage = () => {
               )
             );
           } else {
-            setFormError(error.response.data?.detail || "Произошла ошибка");
+            toast.error(error.response.data?.detail || "Произошла ошибка");
           }
         } else {
-          setFormError("Ошибка сети");
+          toast.error("Ошибка сети");
         }
       }
     },
     [categories, measurementUnits]
   );
 
-  const handleDelete = useCallback(
+  const deleteProduct = useCallback(
     (productId) => {
       const token = Cookies.get("token");
       axios
@@ -620,19 +593,63 @@ const MyProductsPage = () => {
         })
         .then(() => {
           setProducts((prev) => prev.filter((p) => p.id !== productId));
+          toast.success("Товар успешно удален");
         })
         .catch((error) => {
           console.error("Ошибка удаления:", error);
-          alert(error.response?.data?.error || "Ошибка при удалении товара");
+          toast.error(
+            error.response?.data?.error || "Ошибка при удалении товара"
+          );
         });
     },
     [setProducts]
   );
 
+  const confirmDelete = useCallback(
+    (productId) => {
+      toast(
+        <div>
+          <p>Вы уверены, что хотите удалить этот продукт?</p>
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={() => {
+                deleteProduct(productId);
+                toast.dismiss();
+              }}
+              className="px-3 py-1 bg-red-600 text-white rounded mr-2"
+            >
+              Да
+            </button>
+            <button
+              onClick={() => toast.dismiss()}
+              className="px-3 py-1 bg-gray-300 text-gray-800 rounded"
+            >
+              Нет
+            </button>
+          </div>
+        </div>,
+        {
+          autoClose: false,
+          closeOnClick: false,
+          closeButton: false,
+          draggable: false,
+        }
+      );
+    },
+    [deleteProduct]
+  );
+
+  const handleDelete = useCallback(
+    (productId) => {
+      confirmDelete(productId);
+    },
+    [confirmDelete]
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-200 dark:[color-scheme:dark]">
       <Header />
-
+      <ToastContainer />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 dark:text-white">
@@ -771,13 +788,11 @@ const MyProductsPage = () => {
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
-            resetFormState(); // Сбрасываем состояние при закрытии
+            resetFormState();
           }}
           onSubmit={handleSubmit}
           formState={formState}
           formErrors={formErrors}
-          successMessage={successMessage}
-          formError={formError}
           categories={categories}
           measurementUnits={measurementUnits}
           isEditing={!!formState.id}

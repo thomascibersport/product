@@ -6,6 +6,8 @@ import { useNavigate, Link } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/ru";
 import "../index.css";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -128,8 +130,6 @@ const OrdersPage = () => {
       navigate("/login");
       return;
     }
-    if (!window.confirm("Вы уверены, что хотите отменить заказ?")) return;
-
     const reason = "Вы отменили заказ";
     try {
       await axios.post(
@@ -144,11 +144,42 @@ const OrdersPage = () => {
       );
       setOrders(updatedOrders);
       setFilteredOrders(updatedOrders);
-      alert("Заказ успешно отменен");
+      toast.success("Заказ успешно отменен");
     } catch (error) {
-      alert("Ошибка при отмене заказа");
+      toast.error("Ошибка при отмене заказа");
       console.error("Ошибка отмены заказа:", error);
     }
+  };
+
+  const confirmCancelOrder = (orderId) => {
+    toast(
+      <div>
+        <p>Вы уверены, что хотите отменить заказ?</p>
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => {
+              cancelOrder(orderId);
+              toast.dismiss();
+            }}
+            className="px-3 py-1 bg-red-600 text-white rounded mr-2"
+          >
+            Да
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="px-3 py-1 bg-gray-300 text-gray-800 rounded"
+          >
+            Нет
+          </button>
+        </div>
+      </div>,
+      {
+        autoClose: false,
+        closeOnClick: false,
+        closeButton: false,
+        draggable: false,
+      }
+    );
   };
 
   const indexOfLastOrder = currentPage * ordersPerPage;
@@ -174,6 +205,7 @@ const OrdersPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <style>{waveAnimation}</style>
       <Header />
+      <ToastContainer />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           📦 История заказов
@@ -432,7 +464,7 @@ const OrdersPage = () => {
                   {order.status === "processing" && (
                     <div className="mt-4 flex justify-end">
                       <button
-                        onClick={() => cancelOrder(order.id)}
+                        onClick={() => confirmCancelOrder(order.id)}
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Отменить заказ
