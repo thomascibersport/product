@@ -475,12 +475,16 @@ class SellerStatisticsView(APIView):
     def get_customer_purchases(self, seller):
         orders = Order.objects.filter(
             items__product__farmer=seller
-        ).select_related('user').prefetch_related('items__product').order_by('-created_at')
+        ).select_related('user').prefetch_related('items__product').distinct().order_by('-created_at')
 
         customer_purchases = []
+
         for order in orders:
-            customer = {
-                'id': order.user.id,
+            # Группируем товары по заказам
+            order_items = order.items.filter(product__farmer=seller)
+
+            customer_purchases.append({
+                'id': order.id,
                 'first_name': order.user.first_name,
                 'last_name': order.user.last_name,
                 'email': order.user.email,
@@ -488,75 +492,79 @@ class SellerStatisticsView(APIView):
                 'order_date': order.created_at.isoformat(),
                 'payment_method': order.payment_method,
                 'delivery_type': order.delivery_type,
-                'status': order.status,  # Добавлено поле статуса
+                'status': order.status,
                 'items': [
                     {
-                        'product_name': item.product.name,
+                        'product_name': item.product.name if item.product else "Товар удален",
                         'quantity': item.quantity,
                         'price': float(item.price),
                         'total': float(item.quantity * item.price)
-                    } for item in order.items.all() if item.product.farmer == seller
+                    } for item in order_items
                 ]
-            }
-            customer_purchases.append(customer)
+            })
+
         return customer_purchases
     def get_category_sales(self, seller):
-            """Продажи по категориям"""
-            return Category.objects.filter(
-                product__farmer=seller
-            ).annotate(
-                total_sold=Sum('product__orderitem__quantity'),
-                total_revenue=Sum(F('product__orderitem__quantity') * F('product__orderitem__price'))
-            ).values('name', 'total_sold', 'total_revenue')
+        """Продажи по категориям (только подтвержденные заказы)"""
+        return Category.objects.filter(
+            product__orderitem__order__status='confirmed',
+            product__farmer=seller
+        ).annotate(
+            total_sold=Sum('product__orderitem__quantity'),
+            total_revenue=Sum(
+                F('product__orderitem__quantity') * F('product__orderitem__price')
+            )
+        ).distinct().values('name', 'total_sold', 'total_revenue')
 
     def get_sales_by_day_of_week(self, seller):
-        """Продажи по дням недели"""
+        """Продажи по дням недели (только подтвержденные)"""
         return Order.objects.filter(
-            items__product__farmer=seller
+            items__product__farmer=seller,
+            status='confirmed'
         ).annotate(
             day_of_week=ExtractIsoWeekDay('created_at')
         ).values('day_of_week').annotate(
-            order_count=Count('id'),
+            order_count=Count('id', distinct=True),
             total_revenue=Sum('total_amount')
         ).order_by('day_of_week')
 
     def get_order_statuses(self, seller):
-        """Статус заказов"""
+        """Статус заказов (учитываем уникальные заказы)"""
         return Order.objects.filter(
             items__product__farmer=seller
         ).values('status').annotate(
-            count=Count('id')
+            count=Count('id', distinct=True) 
         )
 
     def get_delivery_pickup_stats(self, seller):
-        """Доставка и самовывоз"""
+        """Доставка и самовывоз (уникальные заказы)"""
         return Order.objects.filter(
             items__product__farmer=seller
         ).values('delivery_type').annotate(
-            count=Count('id')
+            count=Count('id', distinct=True)  # Учитываем только уникальные заказы
         )
 
     def get_payment_method_stats(self, seller):
-        """Способы оплаты"""
+        """Способы оплаты (уникальные заказы)"""
         return Order.objects.filter(
             items__product__farmer=seller
         ).values('payment_method').annotate(
-            count=Count('id')
+            count=Count('id', distinct=True)  # Корректный подсчет заказов
         )
 
     def get_cancellation_stats(self, seller):
-        """Отмены заказов"""
+        """Отмены заказов (учитываем уникальные заказы)"""
         cancellations = Order.objects.filter(
             items__product__farmer=seller,
             status='canceled'
         ).aggregate(
-            total_cancellations=Count('id')
+            total_cancellations=Count('id', distinct=True)  # Исправленный подсчет
         )
         reasons = Order.objects.filter(
             items__product__farmer=seller,
             status='canceled'
         ).values('cancel_reason').annotate(
-            count=Count('id')
+            count=Count('id', distinct=True)  # Уникальные заказы по причинам
         )
         return {
             'total_cancellations': cancellations['total_cancellations'],
@@ -571,26 +579,25 @@ class SellerStatisticsView(APIView):
             'total_reviews': reviews.count()
         }
     def get_orders_data(self, seller):
-        orders = OrderItem.objects.filter(
-            product__farmer=seller,
-            order__status__in=['confirmed', 'shipped', 'delivered']
-        )
+        """Основные метрики (только подтвержденные заказы)"""
+        orders = Order.objects.filter(
+            items__product__farmer=seller,
+            status='confirmed'
+        ).distinct()
         
-        aggregation = orders.aggregate(
-            total_orders=Count('id'),
-            total_quantity=Sum('quantity'),
-            total_revenue=Sum(
-                ExpressionWrapper(
-                    F('price') * F('quantity'),
-                    output_field=FloatField()
-                )
-            )
-        )
+        # Подсчёт общего количества товаров продавца в заказах
+        total_quantity_subquery = OrderItem.objects.filter(
+            order__in=orders,
+            product__farmer=seller
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        # Подсчёт общего дохода через уникальные заказы
+        total_revenue = orders.aggregate(total=Sum('total_amount'))['total'] or 0
         
         return {
-            'total_orders': aggregation['total_orders'],
-            'total_quantity': aggregation['total_quantity'] or 0,
-            'total_revenue': aggregation['total_revenue'] or 0
+            'total_orders': orders.count(),
+            'total_quantity': total_quantity_subquery,
+            'total_revenue': total_revenue
         }
 
     def get_purchases(self, seller):
@@ -600,33 +607,30 @@ class SellerStatisticsView(APIView):
         
     def get_products_data(self, seller):
         return OrderItem.objects.filter(
-            product__farmer=seller
+            product__farmer=seller,
+            order__status='confirmed'
         ).values(
             'product__name'
         ).annotate(
             total_sold=Sum('quantity'),
-            total_revenue=Sum(
-                ExpressionWrapper(
-                    F('price') * F('quantity'),
-                    output_field=FloatField()
-                )
-            )
+            total_revenue=Sum(F('price') * F('quantity'))
         ).order_by('-total_sold')[:10]
 
     def get_customers_data(self, seller):
-        customers = OrderItem.objects.filter(
-            product__farmer=seller
+        """Данные покупателей на уровне заказов"""
+        customers = Order.objects.filter(
+            items__product__farmer=seller
         ).values(
-            'order__user__id',
-            'order__user__first_name',
-            'order__user__last_name'
+            'user__id',
+            'user__first_name',
+            'user__last_name'
         ).annotate(
-            order_count=Count('order', distinct=True),
-            total_spent=Sum(F('price') * F('quantity'))
+            order_count=Count('id', distinct=True),  # Уникальные заказы
+            total_spent=Sum('total_amount')          # Сумма из заказов
         )
         
         for customer in customers:
-            user_id = customer['order__user__id']
+            user_id = customer['user__id']
             customer['avg_rating'] = Review.objects.filter(
                 recipient_id=user_id
             ).aggregate(Avg('rating'))['rating__avg'] or 0
@@ -634,15 +638,17 @@ class SellerStatisticsView(APIView):
         return sorted(customers, key=lambda x: x['total_spent'], reverse=True)[:10]
 
     def get_monthly_stats(self, seller, year):
-        return OrderItem.objects.filter(
-            product__farmer=seller,
-            order__created_at__year=year
+        """Ежемесячная статистика (только подтвержденные)"""
+        return Order.objects.filter(
+            items__product__farmer=seller,
+            status='confirmed',
+            created_at__year=year
         ).annotate(
-            month=TruncMonth('order__created_at')
+            month=TruncMonth('created_at')
         ).values('month').annotate(
-            orders=Count('id'),
-            revenue=Sum(F('price') * F('quantity')),
-            items_sold=Sum('quantity')
+            orders=Count('id', distinct=True),
+            revenue=Sum('total_amount'),
+            items_sold=Sum('items__quantity')
         ).order_by('month')
 
     def get_rating_stats(self, seller):
@@ -678,15 +684,15 @@ class SellerStatisticsView(APIView):
         return avg_rating
 
     def get_peak_hours(self, seller):
-        peak_hours = Order.objects.filter(
-            items__product__farmer=seller
+        """Пиковые часы (только подтвержденные)"""
+        return Order.objects.filter(
+            items__product__farmer=seller,
+            status='confirmed'
         ).annotate(
             hour=ExtractHour('created_at')
         ).values('hour').annotate(
-            order_count=Count('id')
+            order_count=Count('id', distinct=True)
         ).order_by('hour')
-        
-        return list(peak_hours)
 
     def get_purchases(self, seller):
         return OrderItem.objects.filter(
