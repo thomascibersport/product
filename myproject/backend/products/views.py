@@ -1,76 +1,59 @@
-from rest_framework import status
-from django.shortcuts import render
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import viewsets
-from rest_framework.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.db import models
+from django.db.models import (
+    Avg,
+    Case,
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    FloatField,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+    When,
+    IntegerField,
+    OuterRef,
+)
+from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay
+from django.shortcuts import render, get_object_or_404
+from django.utils import timezone
+from django.views.generic import TemplateView
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+from rest_framework import status, generics, viewsets, serializers
+from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import (
+    IsAuthenticated,
+    AllowAny,
+    BasePermission,
+    SAFE_METHODS,
+    IsAuthenticatedOrReadOnly,
+    IsAdminUser,
+)
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
-from rest_framework.decorators import action
-from .models import Product, Category, CartItem, Order, OrderItem, Review
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.serializers import SerializerMethodField
+
+from authentication.models import CustomUser
+from .models import Product, Category, CartItem, Order, OrderItem, Message, Review
 from .serializers import (
-    ProductSerializer, 
-    CategorySerializer, 
-    CartItemSerializer, 
+    ProductSerializer,
+    CategorySerializer,
+    CartItemSerializer,
     CartItemDetailSerializer,
     OrderSerializer,
+    MessageSerializer,
+    ReviewSerializer,
     UserProfileSerializer,
     UserSerializer,
-    ReviewSerializer
 )
-from django.db.models import Avg, Count, Sum, F, IntegerField, FloatField
-from django.db.models.functions import ExtractHour, TruncMonth
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from .models import Order, OrderItem, Review
-from django.utils import timezone
-from django.db.models import Q
-
-
-from django.utils import timezone
-from django.db.models import Count, Avg, F, IntegerField, ExpressionWrapper
-from django.db.models.functions import ExtractIsoWeekDay
-from rest_framework import serializers
-
-from .models import Order
-from rest_framework.generics import ListAPIView
-from rest_framework.permissions import AllowAny
-from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import PermissionDenied
-from django.contrib.auth import get_user_model
-from rest_framework.decorators import api_view, permission_classes
-from .models import Message
-from .serializers import MessageSerializer
-
-
-from rest_framework.serializers import SerializerMethodField
-from django.contrib.auth.models import User
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
-from django.db import models
-from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticatedOrReadOnly
-
-
-from django.views.generic import TemplateView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Sum, Count, Avg, Q
-from django.db.models.functions import TruncMonth
-
-from django.db.models import Case, When, Value, IntegerField, DecimalField, FloatField
-from django.db.models.expressions import ExpressionWrapper
-
-from django.db.models import Subquery, OuterRef, IntegerField, Count, Sum
-
-from django.db.models import Avg, Count, Sum, F
-from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay
-from django.utils import timezone
-
-from .models import Order, OrderItem
-
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
-from authentication.models import  CustomUser
-from .models import Review
-
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -474,21 +457,22 @@ class SellerStatisticsView(APIView):
         })
     def get_customer_purchases(self, seller):
         orders = Order.objects.filter(
-            items__product__farmer=seller
+            items__product__farmer=seller,
+            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
         ).select_related('user').prefetch_related('items__product').distinct().order_by('-created_at')
 
         customer_purchases = []
 
         for order in orders:
-            # Группируем товары по заказам
-            order_items = order.items.filter(product__farmer=seller)
-
+            seller_items = order.items.filter(product__farmer=seller)
+            total_seller_amount = sum(item.quantity * item.price for item in seller_items)
+            
             customer_purchases.append({
                 'id': order.id,
                 'first_name': order.user.first_name,
                 'last_name': order.user.last_name,
                 'email': order.user.email,
-                'total_spent': float(order.total_amount),
+                'total_spent': float(total_seller_amount),
                 'order_date': order.created_at.isoformat(),
                 'payment_method': order.payment_method,
                 'delivery_type': order.delivery_type,
@@ -499,15 +483,14 @@ class SellerStatisticsView(APIView):
                         'quantity': item.quantity,
                         'price': float(item.price),
                         'total': float(item.quantity * item.price)
-                    } for item in order_items
+                    } for item in seller_items
                 ]
             })
 
         return customer_purchases
     def get_category_sales(self, seller):
-        """Продажи по категориям (только подтвержденные заказы)"""
         return Category.objects.filter(
-            product__orderitem__order__status='confirmed',
+            product__orderitem__order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered'],
             product__farmer=seller
         ).annotate(
             total_sold=Sum('product__orderitem__quantity'),
@@ -517,10 +500,9 @@ class SellerStatisticsView(APIView):
         ).distinct().values('name', 'total_sold', 'total_revenue')
 
     def get_sales_by_day_of_week(self, seller):
-        """Продажи по дням недели (только подтвержденные)"""
         return Order.objects.filter(
             items__product__farmer=seller,
-            status='confirmed'
+            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
         ).annotate(
             day_of_week=ExtractIsoWeekDay('created_at')
         ).values('day_of_week').annotate(
@@ -579,24 +561,27 @@ class SellerStatisticsView(APIView):
             'total_reviews': reviews.count()
         }
     def get_orders_data(self, seller):
-        """Основные метрики (только подтвержденные заказы)"""
-        orders = Order.objects.filter(
+        total_orders = Order.objects.filter(
             items__product__farmer=seller,
-            status='confirmed'
-        ).distinct()
+            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
+        ).distinct().count()
         
-        # Подсчёт общего количества товаров продавца в заказах
-        total_quantity_subquery = OrderItem.objects.filter(
-            order__in=orders,
-            product__farmer=seller
-        ).aggregate(total=Sum('quantity'))['total'] or 0
+        order_items = OrderItem.objects.filter(
+            product__farmer=seller,
+            order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
+        )
         
-        # Подсчёт общего дохода через уникальные заказы
-        total_revenue = orders.aggregate(total=Sum('total_amount'))['total'] or 0
+        total_quantity = order_items.aggregate(
+            total_quantity=Sum('quantity')
+        )['total_quantity'] or 0
+        
+        total_revenue = order_items.aggregate(
+            total_revenue=Sum(F('quantity') * F('price'))
+        )['total_revenue'] or 0
         
         return {
-            'total_orders': orders.count(),
-            'total_quantity': total_quantity_subquery,
+            'total_orders': total_orders,
+            'total_quantity': total_quantity,
             'total_revenue': total_revenue
         }
 
@@ -608,7 +593,7 @@ class SellerStatisticsView(APIView):
     def get_products_data(self, seller):
         return OrderItem.objects.filter(
             product__farmer=seller,
-            order__status='confirmed'
+            order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
         ).values(
             'product__name'
         ).annotate(
@@ -638,17 +623,16 @@ class SellerStatisticsView(APIView):
         return sorted(customers, key=lambda x: x['total_spent'], reverse=True)[:10]
 
     def get_monthly_stats(self, seller, year):
-        """Ежемесячная статистика (только подтвержденные)"""
-        return Order.objects.filter(
-            items__product__farmer=seller,
-            status='confirmed',
-            created_at__year=year
+        return OrderItem.objects.filter(
+            product__farmer=seller,
+            order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered'],
+            order__created_at__year=year
         ).annotate(
-            month=TruncMonth('created_at')
+            month=TruncMonth('order__created_at')
         ).values('month').annotate(
-            orders=Count('id', distinct=True),
-            revenue=Sum('total_amount'),
-            items_sold=Sum('items__quantity')
+            orders=Count('order', distinct=True),
+            revenue=Sum(F('quantity') * F('price')),
+            items_sold=Sum('quantity')
         ).order_by('month')
 
     def get_rating_stats(self, seller):
@@ -684,10 +668,9 @@ class SellerStatisticsView(APIView):
         return avg_rating
 
     def get_peak_hours(self, seller):
-        """Пиковые часы (только подтвержденные)"""
         return Order.objects.filter(
             items__product__farmer=seller,
-            status='confirmed'
+            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
         ).annotate(
             hour=ExtractHour('created_at')
         ).values('hour').annotate(
@@ -755,3 +738,37 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         average_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0.0 if reviews.exists() else 0.0
         recipient.average_rating = average_rating
         recipient.save()
+class AdminUserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminCategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAdminUser]
+
+class AdminCartItemViewSet(viewsets.ModelViewSet):
+    queryset = CartItem.objects.all()
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminOrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminMessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [IsAdminUser]
+
+class AdminReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAdminUser]

@@ -17,6 +17,17 @@ const SellerOrdersPage = () => {
   const [cancelReason, setCancelReason] = useState("");
   const navigate = useNavigate();
 
+  // Состояния для фильтрации
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ordersPerPage] = useState(10); // Заказов на странице
+
   const waveAnimation = `
     @keyframes wave-group {
       0% { transform: scale(0.3); opacity: 1; }
@@ -47,6 +58,7 @@ const SellerOrdersPage = () => {
     }
   };
 
+  // Загрузка заказов
   useEffect(() => {
     const fetchSellerOrders = async () => {
       const token = Cookies.get("token");
@@ -54,7 +66,6 @@ const SellerOrdersPage = () => {
         navigate("/login");
         return;
       }
-
       try {
         const response = await axios.get(
           "http://localhost:8000/api/orders/seller/",
@@ -63,23 +74,77 @@ const SellerOrdersPage = () => {
           }
         );
         setOrders(response.data);
+        setFilteredOrders(response.data);
       } catch (err) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchSellerOrders();
   }, [navigate]);
 
+  // Фильтрация заказов
+  useEffect(() => {
+    let filtered = orders;
+
+    if (searchTerm.length >= 3) {
+      filtered = filtered.filter(
+        (order) =>
+          order.id.toString().includes(searchTerm) ||
+          order.items.some((item) =>
+            item.product?.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+      );
+    }
+
+    if (statusFilter) {
+      filtered = filtered.filter((order) => order.status === statusFilter);
+    }
+
+    if (startDate) {
+      filtered = filtered.filter((order) =>
+        moment(order.created_at).isSameOrAfter(moment(startDate))
+      );
+    }
+
+    if (endDate) {
+      filtered = filtered.filter((order) =>
+        moment(order.created_at).isSameOrBefore(moment(endDate))
+      );
+    }
+
+    if (minAmount) {
+      filtered = filtered.filter(
+        (order) => order.total_amount >= parseFloat(minAmount)
+      );
+    }
+
+    if (maxAmount) {
+      filtered = filtered.filter(
+        (order) => order.total_amount <= parseFloat(maxAmount)
+      );
+    }
+
+    setFilteredOrders(filtered);
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    statusFilter,
+    startDate,
+    endDate,
+    minAmount,
+    maxAmount,
+    orders,
+  ]);
+
+  // Подтверждение заказа
   const confirmOrderAction = async (orderId) => {
     const token = Cookies.get("token");
     if (!token) {
       navigate("/login");
       return;
     }
-
     try {
       const response = await axios.post(
         `http://localhost:8000/api/orders/${orderId}/confirm/`,
@@ -97,13 +162,13 @@ const SellerOrdersPage = () => {
     }
   };
 
+  // Отмена заказа
   const cancelOrder = async (orderId, reason) => {
     const token = Cookies.get("token");
     if (!token) {
       navigate("/login");
       return;
     }
-
     try {
       const response = await axios.post(
         `http://localhost:8000/api/orders/${orderId}/cancel/`,
@@ -124,6 +189,7 @@ const SellerOrdersPage = () => {
     }
   };
 
+  // Подтверждение действия
   const confirmOrder = (orderId) => {
     toast(
       <div>
@@ -155,8 +221,20 @@ const SellerOrdersPage = () => {
     );
   };
 
+  // Форматирование даты
   const formatDate = (dateString) =>
     moment(dateString).format("DD.MM.YYYY HH:mm");
+
+  // Вычисление текущих заказов для отображения
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = filteredOrders.slice(
+    indexOfFirstOrder,
+    indexOfLastOrder
+  );
+
+  // Пагинация
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   if (loading)
     return (
@@ -180,7 +258,66 @@ const SellerOrdersPage = () => {
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
           📦 Заказы на мои товары
         </h1>
-        {orders.length === 0 ? (
+
+        {/* Фильтры */}
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="text"
+              placeholder="Поиск по номеру заказа или товару (мин. 3 символа)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 p-2 border rounded"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="p-2 border rounded"
+            >
+              <option value="">Все статусы</option>
+              <option value="processing">В обработке</option>
+              <option value="confirmed">Подтвержден</option>
+              <option value="shipped">Отправлен</option>
+              <option value="in_transit">В пути</option>
+              <option value="delivered">Доставлен</option>
+              <option value="canceled">Отменен</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="p-2 border rounded"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="p-2 border rounded"
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="number"
+              placeholder="Мин. сумма (₽)"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              className="p-2 border rounded"
+            />
+            <input
+              type="number"
+              placeholder="Макс. сумма (₽)"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value)}
+              className="p-2 border rounded"
+            />
+          </div>
+        </div>
+
+        {filteredOrders.length === 0 ? (
           <div className="text-center py-20">
             <div className="inline-block bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl transform transition hover:scale-105">
               <div className="text-6xl mb-4">📭</div>
@@ -197,7 +334,7 @@ const SellerOrdersPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
+            {currentOrders.map((order) => (
               <div
                 key={order.id}
                 className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-transform hover:scale-[1.005] relative overflow-hidden"
@@ -292,13 +429,17 @@ const SellerOrdersPage = () => {
                           <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
                             {item.product.name}
                           </p>
-                          {item.product && !item.product.delivery_available && (
+                          {/* Информация о самовывозе */}
+                          {(order.delivery_type === "pickup" ||
+                            (order.delivery_type === "delivery" &&
+                              !item.product.delivery_available)) && (
                             <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
                               <p>
-                                Адрес продавца: {item.product.seller_address || "Не указан"}
+                                Адрес самовывоза:{" "}
+                                {item.product.seller_address || "Не указан"}
                               </p>
                               <p>
-                                Контакты: {item.product.farmer?.phone || "Не указаны"}
+                                Контакты: {item.farmer?.phone || "Не указаны"}
                               </p>
                             </div>
                           )}
@@ -364,6 +505,24 @@ const SellerOrdersPage = () => {
                 </div>
               </div>
             ))}
+            <div className="flex justify-center mt-8">
+              {Array.from(
+                { length: Math.ceil(filteredOrders.length / ordersPerPage) },
+                (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => paginate(i + 1)}
+                    className={`mx-1 px-3 py-1 rounded ${
+                      currentPage === i + 1
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              )}
+            </div>
           </div>
         )}
       </div>

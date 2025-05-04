@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bar, Line, Pie } from "react-chartjs-2";
 import {
   Chart,
@@ -46,30 +47,67 @@ Chart.register(
 
 const SellerDashboard = () => {
   const [stats, setStats] = useState(null);
-  const { token } = useAuth();
+  const { token, user, isLoading } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await axios.get("/api/seller-statistics/", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setStats(response.data);
-      } catch (error) {
-        console.error("Ошибка при загрузке статистики:", error);
-      }
-    };
-    fetchStats();
-  }, [token]);
+    // Проверяем аутентификацию только после завершения загрузки
+    if (!isLoading && (!token || !user)) {
+      console.log("SellerDashboard: перенаправление на /login");
+      navigate("/login");
+    }
+  }, [isLoading, token, user, navigate]);
 
-  if (!stats)
+  useEffect(() => {
+    // Загружаем статистику, только если пользователь аутентифицирован
+    if (!isLoading && token && user) {
+      const fetchStats = async () => {
+        try {
+          const response = await axios.get("/api/seller-statistics/", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setStats(response.data);
+        } catch (error) {
+          if (error.response && error.response.status === 401) {
+            navigate("/login");
+          } else {
+            console.error("Ошибка при загрузке статистики:", error);
+          }
+        }
+      };
+      fetchStats();
+    }
+  }, [isLoading, token, user, navigate]);
+  const PrivateRoute = ({ children }) => {
+    const { token, user, isLoading } = useAuth();
+    const navigate = useNavigate();
+
+    if (isLoading) {
+      return <div>Загрузка...</div>;
+    }
+
+    if (!token || !user) {
+      navigate("/login");
+      return null;
+    }
+
+    return children;
+  };
+  if (isLoading) {
     return (
       <div className="text-center py-10 text-gray-600 dark:text-gray-400">
         Загрузка...
       </div>
     );
+  }
+
+  if (!stats) {
+    return (
+      <div className="text-center py-10 text-gray-600 dark:text-gray-400">
+        Загрузка статистики...
+      </div>
+    );
+  }
 
   const formatNumber = (num) =>
     num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -179,7 +217,7 @@ const SellerDashboard = () => {
         <Grid container spacing={3} className="mb-8">
           {[
             {
-              title: "Всего заказов",
+              title: "Всего успешных заказов",
               value: formatNumber(stats.orders.total_orders),
               icon: "📦",
               color: "blue",
@@ -414,20 +452,23 @@ const SellerDashboard = () => {
                 Всего отмен: {stats.cancellation_stats.total_cancellations}
               </Typography>
               <TableContainer>
-                <Table>
+                <Table className="bg-white dark:bg-gray-800">
                   <TableHead>
                     <TableRow>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Причина
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Количество
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {stats.cancellation_stats.reasons.map((reason, index) => (
-                      <TableRow key={index}>
+                      <TableRow
+                        key={index}
+                        className="bg-white dark:bg-gray-800"
+                      >
                         <TableCell className="text-gray-600 dark:text-gray-300">
                           {reason.cancel_reason || "Не указана"}
                         </TableCell>
@@ -465,7 +506,6 @@ const SellerDashboard = () => {
             </Paper>
           </Grid>
 
-          {/* Обновленная секция: Покупатели и их покупки */}
           <Grid item xs={12}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -475,28 +515,28 @@ const SellerDashboard = () => {
                 Покупатели и их покупки
               </Typography>
               <TableContainer>
-                <Table>
+                <Table className="bg-white dark:bg-gray-800">
                   <TableHead>
                     <TableRow>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Покупатель
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Дата заказа
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Тип оплаты
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Тип доставки
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Сумма
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Товары
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white">
+                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
                         Статус заказа
                       </TableCell>
                     </TableRow>
@@ -504,7 +544,10 @@ const SellerDashboard = () => {
                   <TableBody>
                     {stats.customer_purchases &&
                       stats.customer_purchases.map((purchase, index) => (
-                        <TableRow key={index}>
+                        <TableRow
+                          key={index}
+                          className="bg-white dark:bg-gray-800"
+                        >
                           <TableCell className="text-gray-600 dark:text-gray-300">
                             {purchase.first_name} {purchase.last_name} (
                             {purchase.email})

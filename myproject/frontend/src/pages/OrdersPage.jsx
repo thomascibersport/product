@@ -119,7 +119,15 @@ const OrdersPage = () => {
 
     setFilteredOrders(filtered);
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, startDate, endDate, minAmount, maxAmount, orders]);
+  }, [
+    searchTerm,
+    statusFilter,
+    startDate,
+    endDate,
+    minAmount,
+    maxAmount,
+    orders,
+  ]);
 
   const formatDate = (dateString) =>
     moment(dateString).format("DD.MM.YYYY HH:mm");
@@ -184,7 +192,10 @@ const OrdersPage = () => {
 
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const currentOrders = filteredOrders.slice(
+    indexOfFirstOrder,
+    indexOfLastOrder
+  );
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -417,8 +428,7 @@ const OrdersPage = () => {
                                   {item.product.seller_address || "Не указан"}
                                 </p>
                                 <p>
-                                  Контакты:{" "}
-                                  {item.product.farmer?.phone || "Не указаны"}
+                                  Контакты: {item.farmer?.phone || "Не указаны"}
                                 </p>
                               </div>
                             )}
