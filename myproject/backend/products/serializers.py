@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.contrib.auth import get_user_model
 from authentication.models import CustomUser 
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -111,18 +112,21 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return None
 
 class UserSerializer(serializers.ModelSerializer):
-    avatar = serializers.SerializerMethodField()
+    avatar = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "avatar", "first_name", "last_name", "middle_name", "phone", "show_phone"]
+        fields = [
+            "id", "username", "email", "avatar", "first_name", "last_name",
+            "middle_name", "phone", "show_phone", "is_staff"
+        ]
         extra_kwargs = {
-            'show_phone': {'required': False}
+            "show_phone": {"required": False}
         }
 
     def get_avatar(self, obj):
         if obj.avatar:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
@@ -206,16 +210,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         }
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = serializers.PrimaryKeyRelatedField(read_only=True)
-    recipient = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        error_messages={'does_not_exist': 'Пользователь-получатель не найден.'}
-    )
-
+    sender = UserSerializer(read_only=True)
+    recipient = UserSerializer(read_only=True)
+    
     class Meta:
         model = Message
-        fields = ["id", "sender", "recipient", "content", "timestamp"]
-        read_only_fields = ["sender", "timestamp"]
+        fields = ["id", "sender", "recipient", "content", "timestamp", "is_deleted"]
 
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -229,3 +229,10 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def get_author_name(self, obj):
         return f"{obj.author.first_name} {obj.author.last_name}"
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['is_staff'] = self.user.is_staff
+        data['is_superuser'] = self.user.is_superuser
+        return data

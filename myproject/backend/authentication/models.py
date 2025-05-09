@@ -8,6 +8,7 @@ def user_avatar_path(instance, filename):
     return f"avatars/{instance.username}/{filename}"
 
 class CustomUser(AbstractUser):
+    email = models.EmailField(unique=True, verbose_name="Электронная почта")
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     address = models.TextField(
             verbose_name="Адрес",
@@ -15,6 +16,7 @@ class CustomUser(AbstractUser):
             null=True,
             default="Адрес не указан"
         )
+    
     average_rating = models.FloatField(default=0.0, verbose_name="Средний рейтинг")
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)

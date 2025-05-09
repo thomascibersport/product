@@ -136,17 +136,19 @@ const HomePage = () => {
         {/* Filters and Search */}
         <div className="mb-8 space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
+            {/* Поле поиска */}
             <input
               type="text"
               placeholder="Поиск по названию"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 p-2 border rounded"
+              className="flex-1 p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
             />
+            {/* Выбор категории */}
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
             >
               <option value="">Все категории</option>
               {categories.map((category) => (
@@ -155,6 +157,7 @@ const HomePage = () => {
                 </option>
               ))}
             </select>
+            {/* Чекбокс доставки */}
             <label className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -162,28 +165,33 @@ const HomePage = () => {
                 onChange={(e) => setDeliveryFilter(e.target.checked)}
                 className="form-checkbox"
               />
-              <span>Только с доставкой</span>
+              <span className="text-gray-700 dark:text-white">
+                Только с доставкой
+              </span>
             </label>
           </div>
           <div className="flex flex-col md:flex-row gap-4">
+            {/* Минимальная цена */}
             <input
               type="number"
               placeholder="Мин. цена"
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
             />
+            {/* Максимальная цена */}
             <input
               type="number"
               placeholder="Макс. цена"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
             />
+            {/* Минимальный рейтинг */}
             <select
               value={minRating}
               onChange={(e) => setMinRating(parseInt(e.target.value))}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
             >
               <option value="0">Любой рейтинг</option>
               <option value="1">1+ звезда</option>
@@ -192,10 +200,11 @@ const HomePage = () => {
               <option value="4">4+ звезды</option>
               <option value="5">5 звезд</option>
             </select>
+            {/* Сортировка */}
             <select
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
             >
               <option value="">Сортировка</option>
               <option value="priceAsc">Цена: по возрастанию</option>

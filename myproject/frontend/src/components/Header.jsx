@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -36,16 +36,15 @@ function Header() {
           return;
         }
         const response = await getUser(token);
-        setUser(response.data); // Обновляем весь объект пользователя
+        setUser(response.data);
         setIsAuthenticated(true);
 
-        // Проверка наличия сообщений
-        const messagesResponse = await axios.get("http://localhost:8000/api/messages/has-messages/", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setHasMessages(messagesResponse.data.has_messages);
+        if (!response.data.is_staff) {
+          const messagesResponse = await axios.get("http://localhost:8000/api/messages/has-messages/", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setHasMessages(messagesResponse.data.has_messages);
+        }
       } catch (error) {
         console.error("Ошибка загрузки данных пользователя или сообщений:", error);
         handleLogout();
@@ -53,10 +52,10 @@ function Header() {
     };
 
     fetchUserData();
-  }, [navigate, setUser, setHasMessages]);
+  }, [navigate, setUser]);
 
   const handleLogout = () => {
-    logout(); // Используем logout из AuthContext
+    logout();
     setIsAuthenticated(false);
     navigate("/login");
   };
@@ -76,7 +75,13 @@ function Header() {
           Продукты
         </Link>
 
-        {isAuthenticated && (
+        {isAuthenticated && user?.is_staff ? (
+          <nav className="flex space-x-4">
+            <Link to="/admin" className="hover:text-gray-300">
+              Админ панель
+            </Link>
+          </nav>
+        ) : isAuthenticated ? (
           <nav className="flex space-x-4">
             <Link to="/orders" className="hover:text-gray-300">
               Мои заказы
@@ -99,7 +104,7 @@ function Header() {
               </Link>
             )}
           </nav>
-        )}
+        ) : null}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -116,12 +121,10 @@ function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-white text-black shadow-lg rounded-lg mt-2">
-            {isAuthenticated && (
-              <>
-                <DropdownMenuItem onClick={handleProfileSettings}>
-                  Настройки профиля
-                </DropdownMenuItem>
-              </>
+            {isAuthenticated && !user?.is_staff && (
+              <DropdownMenuItem onClick={handleProfileSettings}>
+                Настройки профиля
+              </DropdownMenuItem>
             )}
             <DropdownMenuItem onClick={handleThemeChange}>
               {isDarkMode ? "Светлая тема" : "Тёмная тема"}

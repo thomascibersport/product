@@ -739,9 +739,10 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         recipient.average_rating = average_rating
         recipient.save()
 class AdminUserViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdminUser]
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminUser]
+
 
 class AdminProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -764,7 +765,7 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 class AdminMessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all()
+    queryset = Message.objects.all().select_related('sender', 'recipient')
     serializer_class = MessageSerializer
     permission_classes = [IsAdminUser]
 

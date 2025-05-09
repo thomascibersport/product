@@ -2,11 +2,12 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.utils.text import slugify
+from django.core.exceptions import ValidationError  
 import uuid
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
-    slug = models.SlugField(max_length=200, unique=True, null=True, blank=True)
+    slug = models.SlugField(max_length=200, unique=True, editable=False)  
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=0)
@@ -17,24 +18,31 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     delivery_available = models.BooleanField(default=False, verbose_name="Доступна доставка")
     seller_address = models.TextField(blank=True, null=True, verbose_name="Адрес продавца")
+    
     def __str__(self):
         return self.name
+    
     def save(self, *args, **kwargs):
-        if not self.slug:
+        # Обновляем slug при изменении названия
+        if not self.slug or self._state.adding:
             base_slug = slugify(self.name)
-            unique_id = uuid.uuid4().hex[:6]  # Генерируем уникальный идентификатор
+            unique_id = uuid.uuid4().hex[:6]
             self.slug = f"{base_slug}-{unique_id}"
         super().save(*args, **kwargs)
 
 class Category(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    slug = models.SlugField(max_length=200, unique=True, null=True, blank=True) 
+    slug = models.SlugField(max_length=200, unique=True, editable=False)  # Убраны null/blank, добавлено editable=False
     created_at = models.DateTimeField(auto_now_add=True)
+    
     def __str__(self):
         return self.name
+    
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            base_slug = slugify(self.name)
+            unique_id = uuid.uuid4().hex[:6]  # Добавлена генерация уникального slug
+            self.slug = f"{base_slug}-{unique_id}"
         super().save(*args, **kwargs)
 
 class CartItem(models.Model):
@@ -104,11 +112,14 @@ class OrderItem(models.Model):
         null=True,
         blank=True
     )
+    # Удалено ошибочное поле slug
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f"{self.product.name} x{self.quantity}"
+        if self.product:
+            return f"{self.product.name} x{self.quantity}"
+        return f"Удаленный продукт x{self.quantity}"
 
 class Message(models.Model):
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="sent_messages", on_delete=models.CASCADE)
@@ -124,16 +135,15 @@ class Review(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='authored_reviews', on_delete=models.CASCADE)
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_reviews', on_delete=models.CASCADE)
     content = models.TextField()
-    rating = models.PositiveIntegerField()  # Оценка от 1 до 5
+    rating = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('author', 'recipient')  # Один автор может оставить только один отзыв одному получателю
+        unique_together = ('author', 'recipient')
 
     def __str__(self):
         return f"Review by {self.author} for {self.recipient}"
 
-# Скрипт для добавления категорий
 def add_categories():
     from products.models import Category
     categories = [

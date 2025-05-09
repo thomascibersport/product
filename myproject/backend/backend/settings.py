@@ -58,11 +58,12 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
+    ],
 }
 SIMPLE_JWT = {
+    'TOKEN_OBTAIN_SERIALIZER': 'products.serializers.CustomTokenObtainPairSerializer',
     'AUTH_HEADER_TYPES': ('Bearer',),
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Увеличиваем время жизни access-токена до 1 часа
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Увеличиваем время жизни refresh-токена до 7 дней
@@ -96,7 +97,7 @@ TEMPLATES = [
     },
 ]
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 

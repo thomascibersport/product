@@ -12,27 +12,6 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(!!Cookies.get("token")); // true, если токен есть
   const [hasMessages, setHasMessages] = useState(false);
 
-  useEffect(() => {
-    console.log("AuthProvider: token:", token, "isLoading:", isLoading);
-    if (token) {
-      setIsLoading(true);
-      getUser(token)
-        .then((response) => {
-          console.log("AuthProvider: пользователь загружен:", response.data);
-          setUser(response.data);
-          setIsLoading(false);
-        })
-        .catch((error) => {
-          console.error("AuthProvider: ошибка загрузки пользователя:", error);
-          setUser(null);
-          setIsLoading(false);
-        });
-    } else {
-      setUser(null);
-      setIsLoading(false);
-    }
-  }, [token]);
-
   const login = (newToken, newUsername, newAvatar) => {
     setToken(newToken);
     Cookies.set("token", newToken, { secure: true, sameSite: "Strict" });
@@ -55,7 +34,18 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
     Cookies.remove("token");
   };
-
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    getUser(token)
+      .then((res) => setUser(res.data))
+      .catch(() => setUser(null))
+      .finally(() => setIsLoading(false));
+  }, [token]);
   return (
     <AuthContext.Provider
       value={{

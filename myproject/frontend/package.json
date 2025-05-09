@@ -34,7 +34,7 @@
     "react-image-crop": "^11.0.7",
     "react-input-mask": "^2.0.4",
     "react-modal": "^3.16.3",
-    "react-router-dom": "^7.1.1",
+    "react-router-dom": "^7.5.3",
     "react-scripts": "5.0.1",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.0",
@@ -44,7 +44,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "jest",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

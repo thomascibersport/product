@@ -1,31 +1,31 @@
-from django.urls import path
-from .views import (
-    ProductList,
-    ProductCreate,
-    CategoryList,
-    ProductDetail,
-    CartItemViewSet,
-    OrderViewSet,
-    MyProductsList,
-    UserProductsList,
-    UserProfileView,
-    UpdateProfileView,
-    send_message,
-    has_messages,
-    ChatListView,
-    ChatMessagesView,
-    UploadFileView,
-    MessageDetailView, 
-    MessageDeleteView,
-    ReviewListCreateView,
-    ReviewDetailView,
-    SellerStatisticsView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from products.views import (
+    ProductList, ProductCreate, CategoryList, ProductDetail, CartItemViewSet,
+    OrderViewSet, MyProductsList, UserProductsList, UserProfileView, UpdateProfileView,
+    send_message, has_messages, ChatListView, ChatMessagesView, UploadFileView,
+    MessageDetailView, MessageDeleteView, ReviewListCreateView, ReviewDetailView,
+    SellerStatisticsView, 
+    AdminUserViewSet, AdminProductViewSet, AdminCategoryViewSet, AdminCartItemViewSet,
+    AdminOrderViewSet, AdminMessageViewSet, AdminReviewViewSet
 )
 from django.conf import settings
 from django.conf.urls.static import static
 from authentication.views import CurrentUserView
 
+router = DefaultRouter()
+router.register(r'admin/users', AdminUserViewSet, basename='admin-users')
+router.register(r'admin/products', AdminProductViewSet, basename='admin-products')
+router.register(r'admin/categories', AdminCategoryViewSet)
+router.register(r'admin/cart-items', AdminCartItemViewSet)
+router.register(r'admin/orders', AdminOrderViewSet)
+router.register(r'admin/messages', AdminMessageViewSet)
+router.register(r'admin/reviews', AdminReviewViewSet)
+
+
 urlpatterns = [
+
+    path('', include(router.urls)),
     path('products/create/', ProductCreate.as_view(), name='product-create'),
     path('products/', ProductList.as_view(), name='product-list'),
     path('products/<int:pk>/', ProductDetail.as_view(), name='product-detail'),
@@ -63,4 +63,4 @@ urlpatterns = [
     path('users/<int:recipient_id>/reviews/', ReviewListCreateView.as_view(), name='review-list-create'),
     path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
     path('seller-statistics/', SellerStatisticsView.as_view(), name='seller-statistics'),
-]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

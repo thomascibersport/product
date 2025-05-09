@@ -42,3 +42,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             agree_to_terms=validated_data.get('agree_to_terms', False)
         )
         return user
+class AuthUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id","username","email","avatar",
+            "first_name","last_name","middle_name",
+            "phone","show_phone","is_staff"
+        ]

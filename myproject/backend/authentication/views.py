@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.parsers import MultiPartParser, FormParser
-
+import logging
 
 import requests
 from django.http import JsonResponse, HttpResponseBadRequest
@@ -20,7 +20,7 @@ from django.urls import reverse
 from django.contrib.auth import authenticate, login as django_login
 from rest_framework import status
 
-from authentication.serializers import UserSerializer as AuthUserSerializer
+from authentication.serializers import AuthUserSerializer
 
 User = get_user_model()
 class CustomLoginView(APIView):
@@ -101,36 +101,34 @@ class UpdateProfileView(APIView):
 
 
 
-class UploadAvatarView(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+logger = logging.getLogger(__name__)
 
+class UploadAvatarView(APIView):
     def post(self, request):
         user = request.user
         file = request.FILES.get('avatar')
-
+        logger.info(f"Получен файл: {file.name if file else 'Нет файла'}")
+        
         if not file:
-            return Response({"error": "Файл не загружен"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Проверка типа файла
+            return Response({"error": "Файл не загружен"}, status=400)
+        
         if not file.content_type.startswith('image/'):
             return Response({"error": "Разрешены только изображения"}, status=400)
-
-        # Ограничение размера файла (5MB)
+        
         if file.size > 5 * 1024 * 1024:
             return Response({"error": "Файл слишком большой (макс. 5MB)"}, status=400)
-
-        # Удаляем старый аватар
+        
         if user.avatar:
+            logger.info(f"Удаление старого аватара: {user.avatar.path}")
             user.avatar.delete(save=False)
-
-        # Сохраняем новый
+        
         user.avatar.save(f'avatar_{user.id}.jpg', file, save=True)
+        logger.info(f"Новый аватар сохранен: {user.avatar.path}")
         
         return Response({
             "message": "Аватар обновлён",
             "avatar_url": user.avatar.url
-        }, status=status.HTTP_200_OK)
+        }, status=200)
 class UpdatePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 

@@ -146,3 +146,27 @@ th {
   outline: none; 
   position: static; 
 }
+
+
+
+
+
+
+.MuiTableContainer-root {
+  background-color: transparent !important;
+}
+
+.MuiTableRow-root {
+  background-color: transparent !important;
+}
+
+.MuiTableCell-root {
+  background-color: transparent !important;
+}
+
+.MuiDialogContent-root {
+  padding-top: 24px !important;
+}
+.MuiDialogContent-root .MuiFormControl-root {
+  margin-top: 16px;
+}

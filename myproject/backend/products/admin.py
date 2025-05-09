@@ -3,15 +3,15 @@ from .models import Product, Category, CartItem, Order, OrderItem, Message, Revi
 
 # Класс для Product
 class ProductAdmin(admin.ModelAdmin):
+    readonly_fields = ("slug",)
     list_display = ('name', 'category', 'farmer', 'price', 'quantity', 'unit', 'created_at', 'delivery_available', 'seller_address')
     list_filter = ('category', 'farmer', 'delivery_available')
     search_fields = ('name', 'description', 'seller_address')
     list_editable = ('price', 'quantity')
-    prepopulated_fields = {'slug': ('name',)}
-    readonly_fields = ('slug', 'created_at')
+    readonly_fields = ('created_at',)
     fieldsets = (
         (None, {
-            'fields': ('name', 'slug', 'description', 'price', 'quantity', 'unit', 'category', 'image', 'farmer', 'delivery_available', 'seller_address')
+            'fields': ('name', 'description', 'price', 'quantity', 'unit', 'category', 'image', 'farmer', 'delivery_available', 'seller_address')
         }),
         ('Дополнительно', {
             'fields': ('created_at',),
@@ -21,7 +21,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 # Класс для Category
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'created_at')
+    list_display = ('name', 'created_at')
     search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
     readonly_fields = ('created_at',)

@@ -93,7 +93,7 @@ const SellerOrdersPage = () => {
         (order) =>
           order.id.toString().includes(searchTerm) ||
           order.items.some((item) =>
-            item.product?.name.toLowerCase().includes(searchTerm.toLowerCase())
+            (item.product?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
           )
       );
     }
@@ -427,22 +427,23 @@ const SellerOrdersPage = () => {
                       >
                         <div className="flex-1">
                           <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
-                            {item.product.name}
+                            {item.product ? item.product.name : "Товар удален"}
                           </p>
                           {/* Информация о самовывозе */}
-                          {(order.delivery_type === "pickup" ||
-                            (order.delivery_type === "delivery" &&
-                              !item.product.delivery_available)) && (
-                            <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
-                              <p>
-                                Адрес самовывоза:{" "}
-                                {item.product.seller_address || "Не указан"}
-                              </p>
-                              <p>
-                                Контакты: {item.farmer?.phone || "Не указаны"}
-                              </p>
-                            </div>
-                          )}
+                          {item.product &&
+                            (order.delivery_type === "pickup" ||
+                              (order.delivery_type === "delivery" &&
+                                !item.product.delivery_available)) && (
+                              <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">
+                                <p>
+                                  Адрес самовывоза:{" "}
+                                  {item.product.seller_address || "Не указан"}
+                                </p>
+                                <p>
+                                  Контакты: {item.farmer?.phone || "Не указаны"}
+                                </p>
+                              </div>
+                            )}
                           <div className="flex justify-between items-center">
                             <div>
                               <p className="text-sm text-gray-600 dark:text-gray-400">

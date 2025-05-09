@@ -65,6 +65,7 @@ const OrdersPage = () => {
         const response = await axios.get("http://localhost:8000/api/orders/", {
           headers: { Authorization: `Bearer ${token}` },
         });
+        console.log("Orders data:", response.data); // Добавьте это
         setOrders(response.data);
         setFilteredOrders(response.data);
       } catch (err) {
@@ -428,7 +429,8 @@ const OrdersPage = () => {
                                   {item.product.seller_address || "Не указан"}
                                 </p>
                                 <p>
-                                  Контакты: {item.farmer?.phone || "Не указаны"}
+                                  Контакты:{" "}
+                                  {item.farmer?.phone || "Не указаны"}
                                 </p>
                               </div>
                             )}
@@ -440,7 +442,7 @@ const OrdersPage = () => {
                               </p>
                               <p>
                                 Контакты:{" "}
-                                {item.product.farmer?.phone || "Не указаны"}
+                                {item.farmer?.phone || "Не указаны"}
                               </p>
                             </div>
                           )}
