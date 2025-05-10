@@ -23,7 +23,7 @@ import SellerStatisticsPage from "../src/pages/SellerStatisticsPage";
 import SellerDashboard from "../src/pages/SellerStatisticsPage";
 import AdminDashboard from "../src/pages/AdminDashboard";
 import PrivateRoute from "./PrivateRoute";
-
+import AssistantPage from '../src/pages/AssistantPage';
 const AdminRoute = ({ children }) => {
   const { user, token, isLoading } = useAuth();
   console.log(
@@ -143,6 +143,7 @@ const App = () => {
               }
               
             />
+            <Route path="/assistant" element={<AssistantPage />} />
           </Routes>
         </Suspense>
       </AuthProvider>

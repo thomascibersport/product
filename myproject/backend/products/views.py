@@ -17,6 +17,7 @@ from django.db.models import (
     IntegerField,
     OuterRef,
 )
+from django.conf import settings
 from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
@@ -54,6 +55,10 @@ from .serializers import (
     UserProfileSerializer,
     UserSerializer,
 )
+from yandexcloud import SDK
+import requests
+import os
+
 User = get_user_model()
 
 class UpdateProfileView(generics.UpdateAPIView):
@@ -773,3 +778,59 @@ class AdminReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [IsAdminUser]
+class GPTAssistantView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        query_type = request.data.get('type', 'question')
+
+        if query_type == 'question':
+            messages = request.data.get('messages', [])
+            if not messages:
+                return Response({'error': 'Messages are required for question type'}, status=status.HTTP_400_BAD_REQUEST)
+            # Ensure messages is a list of dicts with 'role' and 'text'
+            for msg in messages:
+                if not isinstance(msg, dict) or 'role' not in msg or 'text' not in msg:
+                    return Response({'error': 'Invalid message format'}, status=status.HTTP_400_BAD_REQUEST)
+        elif query_type == 'recipe':
+            # For recipe, construct the prompt
+            orders = Order.objects.filter(user=request.user).prefetch_related('items__product')
+            products = set()
+            for order in orders:
+                for item in order.items.all():
+                    if item.product:
+                        products.add(item.product.name)
+            products_list = ', '.join(products)
+            prompt = f"Вы - ИИ-помощник по фермерским продуктам. У пользователя есть следующие продукты: {products_list}. Предложите рецепт, который можно приготовить из этих продуктов."
+            messages = [{"role": "user", "text": prompt}]
+        else:
+            return Response({'error': 'Invalid type'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Construct the request body
+        model_uri = f"gpt://{settings.FOLDER_ID}/yandexgpt-lite"
+        request_body = {
+            "modelUri": model_uri,
+            "completionOptions": {
+                "stream": False,
+                "temperature": 0.6,
+                "maxTokens": 150
+            },
+            "messages": messages
+        }
+
+        # Make request to Yandex GPT API
+        gpt_url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
+        headers = {
+            'Authorization': f'Api-Key {settings.API_KEY}',
+            'Content-Type': 'application/json',
+        }
+
+        try:
+            response = requests.post(gpt_url, headers=headers, json=request_body)
+            response.raise_for_status()
+            gpt_response = response.json()
+            text = gpt_response['result']['alternatives'][0]['message']['text']
+            return Response({'response': text})
+        except requests.exceptions.RequestException as e:
+            error_message = f"Ошибка при запросе к GPT: {str(e)}"
+            return Response({'error': error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

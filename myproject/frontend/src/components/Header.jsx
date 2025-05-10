@@ -40,13 +40,19 @@ function Header() {
         setIsAuthenticated(true);
 
         if (!response.data.is_staff) {
-          const messagesResponse = await axios.get("http://localhost:8000/api/messages/has-messages/", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const messagesResponse = await axios.get(
+            "http://localhost:8000/api/messages/has-messages/",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
           setHasMessages(messagesResponse.data.has_messages);
         }
       } catch (error) {
-        console.error("Ошибка загрузки данных пользователя или сообщений:", error);
+        console.error(
+          "Ошибка загрузки данных пользователя или сообщений:",
+          error
+        );
         handleLogout();
       }
     };
@@ -103,6 +109,12 @@ function Header() {
                 Сообщения
               </Link>
             )}
+            <Link
+              to="/assistant"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-500"
+            >
+              ИИ Помощник
+            </Link>
           </nav>
         ) : null}
 

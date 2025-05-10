@@ -7,7 +7,7 @@ from products.views import (
     MessageDetailView, MessageDeleteView, ReviewListCreateView, ReviewDetailView,
     SellerStatisticsView, 
     AdminUserViewSet, AdminProductViewSet, AdminCategoryViewSet, AdminCartItemViewSet,
-    AdminOrderViewSet, AdminMessageViewSet, AdminReviewViewSet
+    AdminOrderViewSet, AdminMessageViewSet, AdminReviewViewSet, GPTAssistantView
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -63,4 +63,5 @@ urlpatterns = [
     path('users/<int:recipient_id>/reviews/', ReviewListCreateView.as_view(), name='review-list-create'),
     path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
     path('seller-statistics/', SellerStatisticsView.as_view(), name='seller-statistics'),
+    path('assistant/', GPTAssistantView.as_view(), name='gpt-assistant'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
