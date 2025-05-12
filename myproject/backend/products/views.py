@@ -58,8 +58,9 @@ from .serializers import (
 from yandexcloud import SDK
 import requests
 import os
-
+from datetime import datetime, timedelta
 User = get_user_model()
+
 
 class UpdateProfileView(generics.UpdateAPIView):
     serializer_class = UserProfileSerializer
@@ -69,14 +70,18 @@ class UpdateProfileView(generics.UpdateAPIView):
         return self.request.user
 
     def update(self, request, *args, **kwargs):
-        serializer = self.get_serializer(self.get_object(), data=request.data, partial=True)
+        serializer = self.get_serializer(
+            self.get_object(), data=request.data, partial=True
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
 class UserProfileView(generics.RetrieveUpdateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserProfileSerializer
-    lookup_field = 'id'
+    lookup_field = "id"
     permission_classes = [AllowAny]
 
 
@@ -87,10 +92,12 @@ class ProductCreate(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         # Добавлена проверка наличия категории в данных
-        if 'category' not in serializer.validated_data:
-            raise ValidationError({'category': 'This field is required'})
-        
+        if "category" not in serializer.validated_data:
+            raise ValidationError({"category": "This field is required"})
+
         serializer.save(farmer=self.request.user)
+
+
 class ProductList(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [AllowAny]
@@ -106,6 +113,7 @@ class ProductList(generics.ListAPIView):
 class CategoryList(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+
 
 class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
@@ -123,46 +131,46 @@ class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
             if not request.user.is_authenticated:
                 return Response(
                     {"error": "Требуется авторизация"},
-                    status=status.HTTP_401_UNAUTHORIZED
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
             product = self.get_object()
-            
+
             # Проверка прав владельца
             if product.farmer != request.user:
                 return Response(
                     {"error": "Вы не можете удалить этот товар"},
-                    status=status.HTTP_403_FORBIDDEN
+                    status=status.HTTP_403_FORBIDDEN,
                 )
-                
+
             return super().delete(request, *args, **kwargs)
-            
+
         except Exception as e:
             return Response(
                 {"error": "Внутренняя ошибка сервера"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
 class CartItemViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    
+
     def get_serializer_class(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ["list", "retrieve"]:
             return CartItemDetailSerializer
         return CartItemSerializer
 
     def get_queryset(self):
-        return CartItem.objects.filter(user=self.request.user).select_related('product')
+        return CartItem.objects.filter(user=self.request.user).select_related("product")
 
     def perform_create(self, serializer):
-        product_id = self.request.data.get('product')
-        quantity = int(self.request.data.get('quantity', 1))
+        product_id = self.request.data.get("product")
+        quantity = int(self.request.data.get("quantity", 1))
 
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
-            raise ValidationError({'product': 'Товар не найден'})
+            raise ValidationError({"product": "Товар не найден"})
 
         current_cart_items = CartItem.objects.filter(user=self.request.user)
 
@@ -170,15 +178,13 @@ class CartItemViewSet(viewsets.ModelViewSet):
             first_item_farmer = current_cart_items.first().product.farmer
             if product.farmer != first_item_farmer:
                 raise ValidationError(
-                    'Нельзя добавлять товары от разных продавцов в одну корзину.'
+                    "Нельзя добавлять товары от разных продавцов в одну корзину."
                 )
 
         cart_item, created = CartItem.objects.get_or_create(
-            user=self.request.user,
-            product=product,
-            defaults={'quantity': quantity}
+            user=self.request.user, product=product, defaults={"quantity": quantity}
         )
-        
+
         if not created:
             cart_item.quantity += quantity
             cart_item.save()
@@ -189,54 +195,61 @@ class CartItemViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
     def list(self, request, *args, **kwargs):
         try:
             return super().list(request, *args, **kwargs)
         except Exception as e:
-            return Response({'error': str(e)}, status=400)
+            return Response({"error": str(e)}, status=400)
+
     def clear(self, request):
-            cart_items = CartItem.objects.filter(user=request.user)
-            cart_items.delete()
-            return Response({'status': 'cart cleared'})
+        cart_items = CartItem.objects.filter(user=request.user)
+        cart_items.delete()
+        return Response({"status": "cart cleared"})
+
+
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.action == 'seller_orders':
-            return Order.objects.filter(items__product__farmer=self.request.user).distinct()
+        if self.action == "seller_orders":
+            return Order.objects.filter(
+                items__product__farmer=self.request.user
+            ).distinct()
         return Order.objects.filter(user=self.request.user)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def seller_orders(self, request):
         try:
             seller = request.user
-            orders = Order.objects.filter(
-                items__product__farmer=seller
-            ).distinct().prefetch_related('items__product')
+            orders = (
+                Order.objects.filter(items__product__farmer=seller)
+                .distinct()
+                .prefetch_related("items__product")
+            )
             serializer = self.get_serializer(orders, many=True)
             return Response(serializer.data)
         except Exception as e:
             return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def cancel(self, request, pk=None):
         order = get_object_or_404(Order, pk=pk)
         user = request.user
-        reason = request.data.get('reason', '')
+        reason = request.data.get("reason", "")
 
         # Проверка: если пользователь — покупатель или продавец
         if order.user == user or order.items.filter(product__farmer=user).exists():
-            if order.status != 'processing':
+            if order.status != "processing":
                 return Response(
-                    {'error': 'Невозможно отменить заказ в текущем статусе'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "Невозможно отменить заказ в текущем статусе"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            order.status = 'canceled'
+            order.status = "canceled"
             order.cancel_reason = reason
             order.canceled_by = user  # Устанавливаем, кто отменил заказ
             order.save()
@@ -244,46 +257,53 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response(
-                {'error': 'Вы не можете отменить этот заказ'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Вы не можете отменить этот заказ"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def confirm(self, request, pk=None):
         order = get_object_or_404(Order, pk=pk)
         seller = request.user
         if not order.items.filter(product__farmer=seller).exists():
             return Response(
-                {'error': 'Вы не можете подтвердить этот заказ'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Вы не можете подтвердить этот заказ"},
+                status=status.HTTP_403_FORBIDDEN,
             )
-        order.status = 'confirmed'
+        order.status = "confirmed"
         order.save()
         serializer = self.get_serializer(order)
         return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save()
+
+
 class MyProductsList(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Product.objects.filter(farmer=self.request.user).select_related('category')  
+        return Product.objects.filter(farmer=self.request.user).select_related(
+            "category"
+        )
+
 
 class UserProductsList(generics.ListAPIView):
     serializer_class = ProductSerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        user_id = self.kwargs['user_id']
+        user_id = self.kwargs["user_id"]
         return Product.objects.filter(farmer_id=user_id)
 
     # Добавьте контекст запроса для формирования полных URL
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['request'] = self.request
+        context["request"] = self.request
         return context
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def send_message(request):
@@ -291,38 +311,48 @@ def send_message(request):
     if not request.user.is_authenticated:
         return Response(
             {"detail": "Authentication credentials were not provided."},
-            status=status.HTTP_401_UNAUTHORIZED
+            status=status.HTTP_401_UNAUTHORIZED,
         )
-    
+
     serializer = MessageSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save(sender=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-@api_view(['GET'])
+
+
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def has_messages(request):
     user = request.user
     # Проверяем, есть ли сообщения, где пользователь — отправитель или получатель
     has_messages = Message.objects.filter(Q(sender=user) | Q(recipient=user)).exists()
-    return Response({'has_messages': has_messages})
+    return Response({"has_messages": has_messages})
+
+
 class ChatListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        sent_messages = Message.objects.filter(sender=user).values('recipient').distinct()
-        received_messages = Message.objects.filter(recipient=user).values('sender').distinct()
+        sent_messages = (
+            Message.objects.filter(sender=user).values("recipient").distinct()
+        )
+        received_messages = (
+            Message.objects.filter(recipient=user).values("sender").distinct()
+        )
 
         chat_partners = set()
         for msg in sent_messages:
-            chat_partners.add(msg['recipient'])
+            chat_partners.add(msg["recipient"])
         for msg in received_messages:
-            chat_partners.add(msg['sender'])
+            chat_partners.add(msg["sender"])
 
         partners = User.objects.filter(id__in=chat_partners)
-        serializer = UserSerializer(partners, many=True, context={'request': request})
+        serializer = UserSerializer(partners, many=True, context={"request": request})
         return Response(serializer.data)
+
+
 class ChatMessagesView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -330,30 +360,38 @@ class ChatMessagesView(APIView):
         user = request.user
         partner = get_object_or_404(User, pk=pk)
         messages = Message.objects.filter(
-            (Q(sender=user) & Q(recipient=partner)) |
-            (Q(sender=partner) & Q(recipient=user)),
-            is_deleted=False  # Фильтруем удаленные сообщения
-        ).order_by('timestamp')
+            (Q(sender=user) & Q(recipient=partner))
+            | (Q(sender=partner) & Q(recipient=user)),
+            is_deleted=False,  # Фильтруем удаленные сообщения
+        ).order_by("timestamp")
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
+
+
 class UploadFileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if 'file' not in request.FILES:
-            return Response({'error': 'Файл не найден'}, status=status.HTTP_400_BAD_REQUEST)
+        if "file" not in request.FILES:
+            return Response(
+                {"error": "Файл не найден"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        file = request.FILES['file']
+        file = request.FILES["file"]
         file_name = default_storage.save(file.name, ContentFile(file.read()))
         file_url = default_storage.url(file_name)
 
-        return Response({'url': file_url}, status=status.HTTP_201_CREATED)
+        return Response({"url": file_url}, status=status.HTTP_201_CREATED)
+
+
 class MessageDetailView(APIView):
     def patch(self, request, pk):
         message = get_object_or_404(Message, pk=pk)
         if message.sender != request.user:
-            return Response({"error": "Вы не можете редактировать это сообщение"}, 
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Вы не можете редактировать это сообщение"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = MessageSerializer(message, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -363,46 +401,61 @@ class MessageDetailView(APIView):
     def delete(self, request, pk):
         message = get_object_or_404(Message, pk=pk)
         if message.sender != request.user:
-            return Response({"error": "Вы не можете удалить это сообщение"}, 
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Вы не можете удалить это сообщение"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         message.is_deleted = True
         message.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class MessageDeleteView(APIView):
     def delete(self, request, pk):
         message = get_object_or_404(Message, pk=pk)
         if message.sender != request.user:
-            return Response({"error": "Вы не можете удалить это сообщение"}, 
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Вы не можете удалить это сообщение"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         message.is_deleted = True
         message.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class MessageListView(APIView):
     def get(self, request):
         messages = Message.objects.filter(is_deleted=False)
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
+
+
 class ReviewListCreateView(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        recipient_id = self.kwargs['recipient_id']
+        recipient_id = self.kwargs["recipient_id"]
         return Review.objects.filter(recipient_id=recipient_id)
 
     def perform_create(self, serializer):
-        recipient_id = self.kwargs['recipient_id']
+        recipient_id = self.kwargs["recipient_id"]
         recipient = get_object_or_404(User, id=recipient_id)
-        if Review.objects.filter(author=self.request.user, recipient=recipient).exists():
+        if Review.objects.filter(
+            author=self.request.user, recipient=recipient
+        ).exists():
             raise ValidationError("Вы уже оставили отзыв этому пользователю.")
         serializer.save(author=self.request.user, recipient=recipient)
+
+
 class IsAuthenticatedOrReadOnly(BasePermission):
     def has_permission(self, request, view):
         # Разрешаем GET-запросы всем, а остальные — только авторизованным
         if request.method in SAFE_METHODS:
             return True
         return request.user and request.user.is_authenticated
+
+
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
@@ -413,320 +466,393 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         if instance.author != self.request.user:
             raise PermissionDenied("Вы не можете удалить этот отзыв.")
         instance.delete()
+
+
 class SellerStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         seller = request.user
-        current_year = timezone.now().year
-        
-        # Существующие метрики
-        orders_data = self.get_orders_data(seller)
-        products_data = self.get_products_data(seller)
-        customers_data = self.get_customers_data(seller)
-        monthly_stats = self.get_monthly_stats(seller, current_year)
-        rating_stats = self.get_rating_stats(seller)
-        avg_customer_rating = self.get_avg_customer_rating(seller)
-        peak_hours = self.get_peak_hours(seller)
-        purchases = self.get_purchases(seller)
-        seasonal_products = self.get_seasonal_products(seller)
-        
-        # Новые метрики
-        category_sales = self.get_category_sales(seller)
-        sales_by_day_of_week = self.get_sales_by_day_of_week(seller)
-        order_statuses = self.get_order_statuses(seller)
-        delivery_pickup_stats = self.get_delivery_pickup_stats(seller)
-        payment_method_stats = self.get_payment_method_stats(seller)
-        cancellation_stats = self.get_cancellation_stats(seller)
-        review_stats = self.get_review_stats(seller)
-        customer_purchases = self.get_customer_purchases(seller)
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
 
-        return Response({
-            'orders': orders_data,
-            'products': products_data,
-            'customers': customers_data,
-            'monthly_stats': monthly_stats,
-            'rating_stats': rating_stats,
-            'avg_customer_rating': avg_customer_rating,
-            'peak_hours': peak_hours,
-            'purchases': purchases,
-            'seasonal_products': seasonal_products,
-            'category_sales': category_sales,
-            'sales_by_day_of_week': sales_by_day_of_week,
-            'order_statuses': order_statuses,
-            'delivery_pickup_stats': delivery_pickup_stats,
-            'payment_method_stats': payment_method_stats,
-            'cancellation_stats': cancellation_stats,
-            'review_stats': review_stats,
-            'customer_purchases': customer_purchases,
-        })
-    def get_customer_purchases(self, seller):
+        try:
+            start_date = (
+                datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                if start_date_str
+                else None
+            )
+            end_date = (
+                datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                if end_date_str
+                else None
+            )
+        except ValueError:
+            return Response({"error": "Invalid date format"}, status=400)
+
+        orders_data = self.get_orders_data(seller, start_date, end_date)
+        products_data = self.get_products_data(seller, start_date, end_date)
+        customers_data = self.get_customers_data(seller, start_date, end_date)
+        monthly_stats = self.get_monthly_stats(seller, start_date, end_date)
+        rating_stats = self.get_rating_stats(seller, start_date, end_date)
+        avg_customer_rating = self.get_avg_customer_rating(seller)
+        peak_hours = self.get_peak_hours(seller, start_date, end_date)
+        purchases = self.get_purchases(seller, start_date, end_date)
+        seasonal_products = self.get_seasonal_products(seller, start_date, end_date)
+        category_sales = self.get_category_sales(seller, start_date, end_date)
+        sales_by_day_of_week = self.get_sales_by_day_of_week(
+            seller, start_date, end_date
+        )
+        order_statuses = self.get_order_statuses(seller, start_date, end_date)
+        delivery_pickup_stats = self.get_delivery_pickup_stats(
+            seller, start_date, end_date
+        )
+        payment_method_stats = self.get_payment_method_stats(
+            seller, start_date, end_date
+        )
+        cancellation_stats = self.get_cancellation_stats(seller, start_date, end_date)
+        review_stats = self.get_review_stats(seller)
+        customer_purchases = self.get_customer_purchases(seller, start_date, end_date)
+
+        return Response(
+            {
+                "orders": orders_data,
+                "products": list(products_data),
+                "customers": list(customers_data),
+                "monthly_stats": list(monthly_stats),
+                "rating_stats": list(rating_stats),
+                "avg_customer_rating": avg_customer_rating,
+                "peak_hours": list(peak_hours),
+                "purchases": list(purchases),
+                "seasonal_products": list(seasonal_products),
+                "category_sales": list(category_sales),
+                "sales_by_day_of_week": list(sales_by_day_of_week),
+                "order_statuses": list(order_statuses),
+                "delivery_pickup_stats": list(delivery_pickup_stats),
+                "payment_method_stats": list(payment_method_stats),
+                "cancellation_stats": cancellation_stats,
+                "review_stats": review_stats,
+                "customer_purchases": customer_purchases,
+            }
+        )
+
+    def get_orders_data(self, seller, start_date=None, end_date=None):
         orders = Order.objects.filter(
             items__product__farmer=seller,
-            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
-        ).select_related('user').prefetch_related('items__product').distinct().order_by('-created_at')
-
-        customer_purchases = []
-
-        for order in orders:
-            seller_items = order.items.filter(product__farmer=seller)
-            total_seller_amount = sum(item.quantity * item.price for item in seller_items)
-            
-            customer_purchases.append({
-                'id': order.id,
-                'first_name': order.user.first_name,
-                'last_name': order.user.last_name,
-                'email': order.user.email,
-                'total_spent': float(total_seller_amount),
-                'order_date': order.created_at.isoformat(),
-                'payment_method': order.payment_method,
-                'delivery_type': order.delivery_type,
-                'status': order.status,
-                'items': [
-                    {
-                        'product_name': item.product.name if item.product else "Товар удален",
-                        'quantity': item.quantity,
-                        'price': float(item.price),
-                        'total': float(item.quantity * item.price)
-                    } for item in seller_items
-                ]
-            })
-
-        return customer_purchases
-    def get_category_sales(self, seller):
-        return Category.objects.filter(
-            product__orderitem__order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered'],
-            product__farmer=seller
-        ).annotate(
-            total_sold=Sum('product__orderitem__quantity'),
-            total_revenue=Sum(
-                F('product__orderitem__quantity') * F('product__orderitem__price')
+            status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            orders = orders.filter(
+                created_at__range=(start_date, end_date + timedelta(days=1))
             )
-        ).distinct().values('name', 'total_sold', 'total_revenue')
-
-    def get_sales_by_day_of_week(self, seller):
-        return Order.objects.filter(
-            items__product__farmer=seller,
-            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
-        ).annotate(
-            day_of_week=ExtractIsoWeekDay('created_at')
-        ).values('day_of_week').annotate(
-            order_count=Count('id', distinct=True),
-            total_revenue=Sum('total_amount')
-        ).order_by('day_of_week')
-
-    def get_order_statuses(self, seller):
-        """Статус заказов (учитываем уникальные заказы)"""
-        return Order.objects.filter(
-            items__product__farmer=seller
-        ).values('status').annotate(
-            count=Count('id', distinct=True) 
-        )
-
-    def get_delivery_pickup_stats(self, seller):
-        """Доставка и самовывоз (уникальные заказы)"""
-        return Order.objects.filter(
-            items__product__farmer=seller
-        ).values('delivery_type').annotate(
-            count=Count('id', distinct=True)  # Учитываем только уникальные заказы
-        )
-
-    def get_payment_method_stats(self, seller):
-        """Способы оплаты (уникальные заказы)"""
-        return Order.objects.filter(
-            items__product__farmer=seller
-        ).values('payment_method').annotate(
-            count=Count('id', distinct=True)  # Корректный подсчет заказов
-        )
-
-    def get_cancellation_stats(self, seller):
-        """Отмены заказов (учитываем уникальные заказы)"""
-        cancellations = Order.objects.filter(
-            items__product__farmer=seller,
-            status='canceled'
-        ).aggregate(
-            total_cancellations=Count('id', distinct=True)  # Исправленный подсчет
-        )
-        reasons = Order.objects.filter(
-            items__product__farmer=seller,
-            status='canceled'
-        ).values('cancel_reason').annotate(
-            count=Count('id', distinct=True)  # Уникальные заказы по причинам
+        total_orders = orders.distinct().count()
+        order_items = OrderItem.objects.filter(order__in=orders, product__farmer=seller)
+        total_quantity = order_items.aggregate(Sum("quantity"))["quantity__sum"] or 0
+        total_revenue = (
+            order_items.aggregate(total_revenue=Sum(F("quantity") * F("price")))[
+                "total_revenue"
+            ]
+            or 0
         )
         return {
-            'total_cancellations': cancellations['total_cancellations'],
-            'reasons': list(reasons)
+            "total_orders": total_orders,
+            "total_quantity": total_quantity,
+            "total_revenue": float(total_revenue) if total_revenue else 0.0,
         }
 
-    def get_review_stats(self, seller):
-        """Статистика отзывов"""
-        reviews = Review.objects.filter(recipient=seller)
-        return {
-            'average_rating': reviews.aggregate(Avg('rating'))['rating__avg'] or 0,
-            'total_reviews': reviews.count()
-        }
-    def get_orders_data(self, seller):
-        total_orders = Order.objects.filter(
-            items__product__farmer=seller,
-            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
-        ).distinct().count()
-        
-        order_items = OrderItem.objects.filter(
+    def get_products_data(self, seller, start_date=None, end_date=None):
+        qs = OrderItem.objects.filter(
             product__farmer=seller,
-            order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
+            order__status__in=["confirmed", "shipped", "in_transit", "delivered"],
         )
-        
-        total_quantity = order_items.aggregate(
-            total_quantity=Sum('quantity')
-        )['total_quantity'] or 0
-        
-        total_revenue = order_items.aggregate(
-            total_revenue=Sum(F('quantity') * F('price'))
-        )['total_revenue'] or 0
-        
-        return {
-            'total_orders': total_orders,
-            'total_quantity': total_quantity,
-            'total_revenue': total_revenue
-        }
-
-    def get_purchases(self, seller):
-        return OrderItem.objects.filter(
-            product__farmer=seller
-        ).select_related('order', 'product').order_by('-order__created_at')[:10]
-        
-    def get_products_data(self, seller):
-        return OrderItem.objects.filter(
-            product__farmer=seller,
-            order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
-        ).values(
-            'product__name'
-        ).annotate(
-            total_sold=Sum('quantity'),
-            total_revenue=Sum(F('price') * F('quantity'))
-        ).order_by('-total_sold')[:10]
-
-    def get_customers_data(self, seller):
-        """Данные покупателей на уровне заказов"""
-        customers = Order.objects.filter(
-            items__product__farmer=seller
-        ).values(
-            'user__id',
-            'user__first_name',
-            'user__last_name'
-        ).annotate(
-            order_count=Count('id', distinct=True),  # Уникальные заказы
-            total_spent=Sum('total_amount')          # Сумма из заказов
+        if start_date and end_date:
+            qs = qs.filter(
+                order__created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        return (
+            qs.values("product__id", "product__name")
+            .annotate(
+                total_sold=Sum("quantity"),
+                total_revenue=Sum(F("quantity") * F("price")),
+            )
+            .order_by("-total_sold")[:10]
         )
-        
+
+    def get_customers_data(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(items__product__farmer=seller)
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        customers = qs.values(
+            "user__id", "user__first_name", "user__last_name"
+        ).annotate(
+            order_count=Count("id", distinct=True), total_spent=Sum("total_amount")
+        )
         for customer in customers:
-            user_id = customer['user__id']
-            customer['avg_rating'] = Review.objects.filter(
-                recipient_id=user_id
-            ).aggregate(Avg('rating'))['rating__avg'] or 0
-            
-        return sorted(customers, key=lambda x: x['total_spent'], reverse=True)[:10]
-
-    def get_monthly_stats(self, seller, year):
-        return OrderItem.objects.filter(
-            product__farmer=seller,
-            order__status__in=['confirmed', 'shipped', 'in_transit', 'delivered'],
-            order__created_at__year=year
-        ).annotate(
-            month=TruncMonth('order__created_at')
-        ).values('month').annotate(
-            orders=Count('order', distinct=True),
-            revenue=Sum(F('quantity') * F('price')),
-            items_sold=Sum('quantity')
-        ).order_by('month')
-
-    def get_rating_stats(self, seller):
-        order_count_subquery = Order.objects.filter(
-            user=OuterRef('recipient'),
-            items__product__farmer=seller
-        ).values('user').annotate(count=Count('id')).values('count')
-
-        rating_stats = Review.objects.filter(
-            recipient__in=User.objects.filter(
-                id__in=OrderItem.objects.filter(
-                    product__farmer=seller
-                ).values_list('order__user', flat=True).distinct()
+            user_id = customer["user__id"]
+            customer["avg_rating"] = (
+                Review.objects.filter(recipient_id=user_id).aggregate(Avg("rating"))[
+                    "rating__avg"
+                ]
+                or 0
             )
-        ).annotate(
-            order_count=Subquery(order_count_subquery, output_field=IntegerField())
-        ).values('rating').annotate(
-            count=Count('id'),
-            total_orders=Sum('order_count')
-        ).order_by('-rating')
+        return sorted(customers, key=lambda x: x["total_spent"], reverse=True)[:10]
 
+    def get_monthly_stats(self, seller, start_date=None, end_date=None):
+        qs = OrderItem.objects.filter(
+            product__farmer=seller,
+            order__status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            qs = qs.filter(
+                order__created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        monthly_data = (
+            qs.annotate(month=TruncMonth("order__created_at"))
+            .values("month")
+            .annotate(
+                orders=Count("order", distinct=True),
+                revenue=Sum(F("quantity") * F("price")),
+                items_sold=Sum("quantity"),
+            )
+            .order_by("month")
+        )
+        for data in monthly_data:
+            data["month"] = data["month"].strftime("%Y-%m") if data["month"] else None
+        return monthly_data
+
+    def get_rating_stats(self, seller, start_date=None, end_date=None):
+        order_count_subquery = Order.objects.filter(
+            user=OuterRef("recipient"), items__product__farmer=seller
+        )
+        if start_date and end_date:
+            order_count_subquery = order_count_subquery.filter(
+                created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        order_count_subquery = (
+            order_count_subquery.values("user")
+            .annotate(count=Count("id"))
+            .values("count")
+        )
+        rating_stats = (
+            Review.objects.filter(
+                recipient__in=CustomUser.objects.filter(
+                    id__in=OrderItem.objects.filter(product__farmer=seller)
+                    .values_list("order__user", flat=True)
+                    .distinct()
+                )
+            )
+            .annotate(
+                order_count=Subquery(order_count_subquery, output_field=IntegerField())
+            )
+            .values("rating")
+            .annotate(count=Count("id"), total_orders=Sum("order_count"))
+            .order_by("-rating")
+        )
         return rating_stats
 
     def get_avg_customer_rating(self, seller):
-        customer_ids = OrderItem.objects.filter(
-            product__farmer=seller
-        ).values_list('order__user__id', flat=True).distinct()
-        
-        avg_rating = Review.objects.filter(
-            recipient_id__in=customer_ids
-        ).aggregate(Avg('rating'))['rating__avg'] or 0
-        
+        customer_ids = (
+            OrderItem.objects.filter(product__farmer=seller)
+            .values_list("order__user__id", flat=True)
+            .distinct()
+        )
+        avg_rating = (
+            Review.objects.filter(recipient_id__in=customer_ids).aggregate(
+                Avg("rating")
+            )["rating__avg"]
+            or 0
+        )
         return avg_rating
 
-    def get_peak_hours(self, seller):
-        return Order.objects.filter(
+    def get_peak_hours(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(
             items__product__farmer=seller,
-            status__in=['confirmed', 'shipped', 'in_transit', 'delivered']
-        ).annotate(
-            hour=ExtractHour('created_at')
-        ).values('hour').annotate(
-            order_count=Count('id', distinct=True)
-        ).order_by('hour')
+            status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        return (
+            qs.annotate(hour=ExtractHour("created_at"))
+            .values("hour")
+            .annotate(order_count=Count("id", distinct=True))
+            .order_by("hour")
+        )
 
-    def get_purchases(self, seller):
-        return OrderItem.objects.filter(
-            product__farmer=seller
-        ).values(
-            'order__user__id',
-            'order__user__first_name',
-            'order__user__last_name',
-            'product__name',
-            'quantity',
-            'price'
-        ).order_by('-order__user__id')
-
-    def get_seasonal_products(self, seller):
-        current_month = timezone.now().month
-        season_start = (current_month - 2) % 12 or 12  # Пример: последние 3 месяца
-        season_end = current_month
-        
-        return OrderItem.objects.filter(
+    def get_purchases(self, seller, start_date=None, end_date=None):
+        qs = OrderItem.objects.filter(
             product__farmer=seller,
-            order__created_at__month__gte=season_start,
-            order__created_at__month__lte=season_end
-        ).values(
-            'product__name'
-        ).annotate(
-            total_sold=Sum('quantity')
-        ).order_by('-total_sold')[:5]
+            order__status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            qs = qs.filter(
+                order__created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        return qs.values(
+            "order__user__id",
+            "order__user__first_name",
+            "order__user__last_name",
+            "product__name",
+            "quantity",
+            "price",
+        ).order_by("-order__created_at")[:10]
+
+    def get_seasonal_products(self, seller, start_date=None, end_date=None):
+        qs = OrderItem.objects.filter(
+            product__farmer=seller,
+            order__status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            qs = qs.filter(
+                order__created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        return (
+            qs.values("product__name")
+            .annotate(total_sold=Sum("quantity"))
+            .order_by("-total_sold")[:5]
+        )
+
+    def get_category_sales(self, seller, start_date=None, end_date=None):
+        qs = OrderItem.objects.filter(
+            product__farmer=seller,
+            order__status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            qs = qs.filter(
+                order__created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        return (
+            qs.values("product__category__name")
+            .annotate(
+                name=F("product__category__name"),
+                total_sold=Sum("quantity"),
+                total_revenue=Sum(F("quantity") * F("price")),
+            )
+            .values("name", "total_sold", "total_revenue")
+        )
+
+    def get_sales_by_day_of_week(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(
+            items__product__farmer=seller,
+            status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        return (
+            qs.annotate(day_of_week=ExtractIsoWeekDay("created_at"))
+            .values("day_of_week")
+            .annotate(
+                order_count=Count("id", distinct=True),
+                total_revenue=Sum("total_amount"),
+            )
+            .order_by("day_of_week")
+        )
+
+    def get_order_statuses(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(items__product__farmer=seller)
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        return qs.values("status").annotate(count=Count("id", distinct=True))
+
+    def get_delivery_pickup_stats(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(items__product__farmer=seller)
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        return qs.values("delivery_type").annotate(count=Count("id", distinct=True))
+
+    def get_payment_method_stats(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(items__product__farmer=seller)
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        return qs.values("payment_method").annotate(count=Count("id", distinct=True))
+
+    def get_cancellation_stats(self, seller, start_date=None, end_date=None):
+        qs = Order.objects.filter(items__product__farmer=seller, status="canceled")
+        if start_date and end_date:
+            qs = qs.filter(created_at__range=(start_date, end_date + timedelta(days=1)))
+        cancellations = qs.aggregate(total_cancellations=Count("id", distinct=True))
+        reasons = qs.values("cancel_reason").annotate(count=Count("id", distinct=True))
+        return {
+            "total_cancellations": cancellations["total_cancellations"],
+            "reasons": list(reasons),
+        }
+
+    def get_review_stats(self, seller):
+        reviews = Review.objects.filter(recipient=seller)
+        return {
+            "average_rating": reviews.aggregate(Avg("rating"))["rating__avg"] or 0,
+            "total_reviews": reviews.count(),
+        }
+
+    def get_customer_purchases(self, seller, start_date=None, end_date=None):
+        orders = Order.objects.filter(
+            items__product__farmer=seller,
+            status__in=["confirmed", "shipped", "in_transit", "delivered"],
+        )
+        if start_date and end_date:
+            orders = orders.filter(
+                created_at__range=(start_date, end_date + timedelta(days=1))
+            )
+        orders = (
+            orders.select_related("user")
+            .prefetch_related("items__product")
+            .distinct()
+            .order_by("-created_at")
+        )
+        customer_purchases = []
+        for order in orders:
+            seller_items = order.items.filter(product__farmer=seller)
+            total_seller_amount = sum(
+                item.quantity * item.price for item in seller_items
+            )
+            customer_purchases.append(
+                {
+                    "id": order.id,
+                    "first_name": order.user.first_name,
+                    "last_name": order.user.last_name,
+                    "email": order.user.email,
+                    "total_spent": float(total_seller_amount),
+                    "order_date": order.created_at.isoformat(),
+                    "payment_method": order.payment_method,
+                    "delivery_type": order.delivery_type,
+                    "status": order.status,
+                    "items": [
+                        {
+                            "product_name": item.product.name
+                            if item.product
+                            else "Товар удален",
+                            "quantity": item.quantity,
+                            "price": float(item.price),
+                            "total": float(item.quantity * item.price),
+                        }
+                        for item in seller_items
+                    ],
+                }
+            )
+        return customer_purchases
+
+
 class ReviewListCreateView(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        recipient_id = self.kwargs['recipient_id']
+        recipient_id = self.kwargs["recipient_id"]
         return Review.objects.filter(recipient_id=recipient_id)
 
     def perform_create(self, serializer):
-        recipient_id = self.kwargs['recipient_id']
+        recipient_id = self.kwargs["recipient_id"]
         recipient = get_object_or_404(CustomUser, id=recipient_id)
-        if Review.objects.filter(author=self.request.user, recipient=recipient).exists():
+        if Review.objects.filter(
+            author=self.request.user, recipient=recipient
+        ).exists():
             raise ValidationError("Вы уже оставили отзыв этому пользователю.")
         review = serializer.save(author=self.request.user, recipient=recipient)
         # Update average rating
         reviews = Review.objects.filter(recipient=recipient)
-        average_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0.0
+        average_rating = reviews.aggregate(Avg("rating"))["rating__avg"] or 0.0
         recipient.average_rating = average_rating
         recipient.save()
+
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Review.objects.all()
@@ -740,9 +866,15 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
         # Update average rating
         reviews = Review.objects.filter(recipient=recipient)
-        average_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0.0 if reviews.exists() else 0.0
+        average_rating = (
+            reviews.aggregate(Avg("rating"))["rating__avg"] or 0.0
+            if reviews.exists()
+            else 0.0
+        )
         recipient.average_rating = average_rating
         recipient.save()
+
+
 class AdminUserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     queryset = CustomUser.objects.all()
@@ -754,57 +886,74 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAdminUser]
 
+
 class AdminCategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAdminUser]
+
 
 class AdminCartItemViewSet(viewsets.ModelViewSet):
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
     permission_classes = [IsAdminUser]
 
+
 class AdminOrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAdminUser]
 
+
 class AdminMessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all().select_related('sender', 'recipient')
+    queryset = Message.objects.all().select_related("sender", "recipient")
     serializer_class = MessageSerializer
     permission_classes = [IsAdminUser]
+
 
 class AdminReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [IsAdminUser]
+
+
 class GPTAssistantView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        query_type = request.data.get('type', 'question')
+        query_type = request.data.get("type", "question")
 
-        if query_type == 'question':
-            messages = request.data.get('messages', [])
+        if query_type == "question":
+            messages = request.data.get("messages", [])
             if not messages:
-                return Response({'error': 'Messages are required for question type'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Messages are required for question type"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             # Ensure messages is a list of dicts with 'role' and 'text'
             for msg in messages:
-                if not isinstance(msg, dict) or 'role' not in msg or 'text' not in msg:
-                    return Response({'error': 'Invalid message format'}, status=status.HTTP_400_BAD_REQUEST)
-        elif query_type == 'recipe':
+                if not isinstance(msg, dict) or "role" not in msg or "text" not in msg:
+                    return Response(
+                        {"error": "Invalid message format"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+        elif query_type == "recipe":
             # For recipe, construct the prompt
-            orders = Order.objects.filter(user=request.user).prefetch_related('items__product')
+            orders = Order.objects.filter(user=request.user).prefetch_related(
+                "items__product"
+            )
             products = set()
             for order in orders:
                 for item in order.items.all():
                     if item.product:
                         products.add(item.product.name)
-            products_list = ', '.join(products)
+            products_list = ", ".join(products)
             prompt = f"Вы - ИИ-помощник по фермерским продуктам. У пользователя есть следующие продукты: {products_list}. Предложите рецепт, который можно приготовить из этих продуктов."
             messages = [{"role": "user", "text": prompt}]
         else:
-            return Response({'error': 'Invalid type'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Construct the request body
         model_uri = f"gpt://{settings.FOLDER_ID}/yandexgpt-lite"
@@ -813,24 +962,26 @@ class GPTAssistantView(APIView):
             "completionOptions": {
                 "stream": False,
                 "temperature": 0.6,
-                "maxTokens": 150
+                "maxTokens": 150,
             },
-            "messages": messages
+            "messages": messages,
         }
 
         # Make request to Yandex GPT API
-        gpt_url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
+        gpt_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
         headers = {
-            'Authorization': f'Api-Key {settings.API_KEY}',
-            'Content-Type': 'application/json',
+            "Authorization": f"Api-Key {settings.API_KEY}",
+            "Content-Type": "application/json",
         }
 
         try:
             response = requests.post(gpt_url, headers=headers, json=request_body)
             response.raise_for_status()
             gpt_response = response.json()
-            text = gpt_response['result']['alternatives'][0]['message']['text']
-            return Response({'response': text})
+            text = gpt_response["result"]["alternatives"][0]["message"]["text"]
+            return Response({"response": text})
         except requests.exceptions.RequestException as e:
             error_message = f"Ошибка при запросе к GPT: {str(e)}"
-            return Response({'error': error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

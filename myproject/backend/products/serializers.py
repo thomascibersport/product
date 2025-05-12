@@ -211,11 +211,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
+    recipient_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), 
+        source='recipient', 
+        write_only=True
+    )
     recipient = UserSerializer(read_only=True)
     
     class Meta:
         model = Message
-        fields = ["id", "sender", "recipient", "content", "timestamp", "is_deleted"]
+        fields = ["id", "sender", "recipient", "recipient_id", "content", "timestamp", "is_deleted"]
+        read_only_fields = ["sender", "timestamp", "is_deleted"]
 
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)

@@ -8,6 +8,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../index.css";
+import { FaEdit, FaTrash } from "react-icons/fa";
 
 const MediaGallery = ({ mediaFiles, onClose, onShowInChat }) => {
   return (
@@ -64,22 +65,22 @@ const MediaGallery = ({ mediaFiles, onClose, onShowInChat }) => {
 };
 
 const ChatPage = () => {
-  const { id } = useParams(); // ID собеседника из URL
+  const { id } = useParams();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [partner, setPartner] = useState(null); // Данные собеседника
-  const [currentUserId, setCurrentUserId] = useState(null); // ID текущего пользователя
+  const [partner, setPartner] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [editingMessageId, setEditingMessageId] = useState(null); // ID редактируемого сообщения
-  const [editedContent, setEditedContent] = useState(""); // Содержимое редактируемого сообщения
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editedContent, setEditedContent] = useState("");
   const [mediaFiles, setMediaFiles] = useState([]);
   const [isMediaGalleryOpen, setIsMediaGalleryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const messagesEndRef = useRef(null); // Для прокрутки к последнему сообщению
-  const fileInputRef = useRef(null); // Для доступа к input type="file"
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
   const messageRefs = useRef({});
 
   useEffect(() => {
@@ -141,10 +142,6 @@ const ChatPage = () => {
   }, [id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
     const media = messages
       .filter((msg) => msg.content.startsWith("Файл: "))
       .map((msg) => {
@@ -176,11 +173,14 @@ const ChatPage = () => {
     try {
       const response = await axios.post(
         "http://localhost:8000/api/messages/send/",
-        { recipient: id, content: newMessage },
+        { recipient_id: id, content: newMessage },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setMessages([...messages, response.data]);
+      setMessages((prevMessages) => [...prevMessages, response.data]);
       setNewMessage("");
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 0);
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);
       toast.error("Не удалось отправить сообщение: " + err.message);
@@ -191,8 +191,8 @@ const ChatPage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const maxImageSize = 5 * 1024 * 1024; // 5MB для изображений
-    const maxVideoSize = 20 * 1024 * 1024; // 20MB для видео
+    const maxImageSize = 5 * 1024 * 1024;
+    const maxVideoSize = 20 * 1024 * 1024;
 
     if (file.type.startsWith("image/")) {
       if (file.size > maxImageSize) {
@@ -233,11 +233,14 @@ const ChatPage = () => {
 
       const messageResponse = await axios.post(
         "http://localhost:8000/api/messages/send/",
-        { recipient: id, content: `Файл: ${fileUrl}` },
+        { recipient_id: id, content: `Файл: ${fileUrl}` },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setMessages([...messages, messageResponse.data]);
+      setMessages((prevMessages) => [...prevMessages, messageResponse.data]);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 0);
     } catch (err) {
       console.error("Ошибка:", err.response?.data || err.message);
       toast.error(
@@ -270,8 +273,8 @@ const ChatPage = () => {
         { content: editedContent },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setMessages(
-        messages.map((msg) => (msg.id === messageId ? response.data : msg))
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) => (msg.id === messageId ? response.data : msg))
       );
       setEditingMessageId(null);
       setEditedContent("");
@@ -294,7 +297,9 @@ const ChatPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setMessages(messages.filter((msg) => msg.id !== messageId));
+      setMessages((prevMessages) =>
+        prevMessages.filter((msg) => msg.id !== messageId)
+      );
       toast.success("Сообщение успешно удалено!");
     } catch (err) {
       console.error("Ошибка при удалении сообщения:", err);
@@ -359,9 +364,21 @@ const ChatPage = () => {
       )
     : messages;
 
+  // Сортировка сообщений по времени
+  const sortedMessages = [...filteredMessages].sort(
+    (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+  );
+
+  // Функция для получения даты без времени
+  const getDateWithoutTime = (date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
   const handleDateChange = (date) => {
     setSelectedDate(date);
-    setSearchQuery(""); // Очистка поиска при выборе даты
+    setSearchQuery("");
   };
 
   if (loading)
@@ -432,12 +449,23 @@ const ChatPage = () => {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-4 max-h-[70vh] overflow-y-auto custom-scrollbar flex justify-center items-center">
-          {filteredMessages.length === 0 ? (
+          {sortedMessages.length === 0 ? (
             <p className="text-gray-500 text-center">Отправьте сообщение</p>
           ) : (
             <div className="space-y-4 w-full">
-              {filteredMessages.map((msg) => {
-                const isOwnMessage = Number(msg.sender) === currentUserId;
+              {sortedMessages.map((msg, index) => {
+                const messageDate = getDateWithoutTime(msg.timestamp);
+                const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
+                const prevDate = prevMessage
+                  ? getDateWithoutTime(prevMessage.timestamp)
+                  : null;
+                const showDateHeader =
+                  index === 0 || messageDate.getTime() !== prevDate?.getTime();
+                const formattedDate = messageDate.toLocaleDateString("ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                });
+                const isOwnMessage = msg.sender.id === currentUserId;
                 const isEditing = editingMessageId === msg.id;
                 const fileUrl = msg.content.startsWith("Файл: ")
                   ? msg.content.split("Файл: ")[1]
@@ -446,87 +474,97 @@ const ChatPage = () => {
                 const isVideo = fileUrl.match(/\.(mp4|webm|ogg)$/) != null;
 
                 return (
-                  <div
-                    key={msg.id}
-                    ref={(el) => (messageRefs.current[msg.id] = el)}
-                    className={`flex w-full ${
-                      isOwnMessage ? "justify-end" : "justify-start"
-                    }`}
-                  >
+                  <React.Fragment key={msg.id}>
+                    {showDateHeader && (
+                      <div className="flex justify-center my-4">
+                        <span className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-1 rounded-full text-sm">
+                          {formattedDate}
+                        </span>
+                      </div>
+                    )}
                     <div
-                      className={`message p-3 rounded-lg max-w-md ${
-                        isOwnMessage
-                          ? "bg-green-100 dark:bg-green-700"
-                          : "bg-blue-100 dark:bg-blue-700"
+                      ref={(el) => (messageRefs.current[msg.id] = el)}
+                      className={`flex w-full ${
+                        isOwnMessage ? "justify-end" : "justify-start"
                       }`}
                     >
-                      {isEditing ? (
-                        <div>
-                          <textarea
-                            value={editedContent}
-                            onChange={(e) => setEditedContent(e.target.value)}
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"
-                          />
-                          <div className="mt-2">
-                            <button
-                              onClick={() => saveEditedMessage(msg.id)}
-                              className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                            >
-                              Сохранить
-                            </button>
-                            <button
-                              onClick={() => setEditingMessageId(null)}
-                              className="ml-2 px-4 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
-                            >
-                              Отмена
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {isImage ? (
-                            <img
-                              src={fileUrl}
-                              alt="uploaded"
-                              className="max-w-full h-auto"
+                      <div
+                        className={`message p-3 rounded-lg max-w-md ${
+                          isOwnMessage
+                            ? "bg-green-100 dark:bg-green-700"
+                            : "bg-blue-100 dark:bg-blue-700"
+                        }`}
+                      >
+                        {isEditing ? (
+                          <div>
+                            <textarea
+                              value={editedContent}
+                              onChange={(e) => setEditedContent(e.target.value)}
+                              className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"
                             />
-                          ) : isVideo ? (
-                            <video controls className="max-w-full h-auto">
-                              <source src={fileUrl} type="video/mp4" />
-                              Ваш браузер не поддерживает видео.
-                            </video>
-                          ) : (
-                            <p className="text-gray-800 dark:text-white">
-                              {msg.content}
-                            </p>
-                          )}
-                          {isOwnMessage && !isImage && !isVideo && (
                             <div className="mt-2">
                               <button
-                                onClick={() => startEditing(msg)}
-                                className="text-sm text-blue-500 hover:underline mr-4"
+                                onClick={() => saveEditedMessage(msg.id)}
+                                className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
                               >
-                                Редактировать
+                                Сохранить
                               </button>
-                            </div>
-                          )}
-                          {isOwnMessage && (
-                            <div className="mt-2">
                               <button
-                                onClick={() => deleteMessage(msg.id)}
-                                className="text-sm text-red-500 hover:underline"
+                                onClick={() => setEditingMessageId(null)}
+                                className="ml-2 px-4 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
                               >
-                                Удалить
+                                Отмена
                               </button>
                             </div>
-                          )}
-                        </>
-                      )}
-                      <span className="text-xs text-gray-500 dark:text-gray-300">
-                        {new Date(msg.timestamp).toLocaleString()}
-                      </span>
+                          </div>
+                        ) : (
+                          <>
+                            {isImage ? (
+                              <img
+                                src={fileUrl}
+                                alt="uploaded"
+                                className="max-w-full h-auto"
+                              />
+                            ) : isVideo ? (
+                              <video controls className="max-w-full h-auto">
+                                <source src={fileUrl} type="video/mp4" />
+                                Ваш браузер не поддерживает видео.
+                              </video>
+                            ) : (
+                              <p className="text-gray-800 dark:text-white">
+                                {msg.content}
+                              </p>
+                            )}
+                            {isOwnMessage && (
+                              <div className="flex justify-end gap-2 mt-2">
+                                {!isImage && !isVideo && (
+                                  <button
+                                    onClick={() => startEditing(msg)}
+                                    className="text-blue-500 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-500"
+                                    title="Редактировать"
+                                    aria-label="Редактировать сообщение"
+                                  >
+                                    <FaEdit size={16} />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => deleteMessage(msg.id)}
+                                  className="text-red-500 hover:text-red-700 dark:text-red-300 dark:hover:text-red-500"
+                                  title="Удалить"
+                                  aria-label="Удалить сообщение"
+                                >
+                                  <FaTrash size={16} />
+                                </button>
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500 dark:text-gray-300 block mt-2">
+                              {new Date(msg.timestamp).toLocaleString()}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })}
               <div ref={messagesEndRef} />

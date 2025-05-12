@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bar, Line, Pie } from "react-chartjs-2";
 import {
@@ -28,8 +28,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
 } from "@mui/material";
 import Header from "../components/Header";
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import ruLocale from 'date-fns/locale/ru';
+import { subDays } from 'date-fns';
+import { useTheme } from '@mui/material/styles'; // Добавлен импорт
 
 Chart.register(
   CategoryScale,
@@ -47,52 +54,47 @@ Chart.register(
 
 const SellerDashboard = () => {
   const [stats, setStats] = useState(null);
+  const [startDate, setStartDate] = useState(subDays(new Date(), 30));
+  const [endDate, setEndDate] = useState(new Date());
   const { token, user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme(); // Получаем текущую тему
+
+  const fetchStats = useCallback(async () => {
+    if (!token || !user) return;
+    console.log('Fetching stats for dates:', startDate, endDate);
+    try {
+      const response = await axios.get("/api/seller-statistics/", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+        },
+      });
+      console.log('API response:', response.data);
+      setStats(response.data);
+    } catch (error) {
+      if (error.response && error.response.status === 401) {
+        navigate("/login");
+      } else {
+        console.error("Ошибка при загрузке статистики:", error);
+      }
+    }
+  }, [token, user, startDate, endDate, navigate]);
 
   useEffect(() => {
-    // Проверяем аутентификацию только после завершения загрузки
+    if (!isLoading && token && user) {
+      fetchStats();
+    }
+  }, [isLoading, token, user, startDate, endDate]);
+
+  useEffect(() => {
     if (!isLoading && (!token || !user)) {
       console.log("SellerDashboard: перенаправление на /login");
       navigate("/login");
     }
   }, [isLoading, token, user, navigate]);
 
-  useEffect(() => {
-    // Загружаем статистику, только если пользователь аутентифицирован
-    if (!isLoading && token && user) {
-      const fetchStats = async () => {
-        try {
-          const response = await axios.get("/api/seller-statistics/", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          setStats(response.data);
-        } catch (error) {
-          if (error.response && error.response.status === 401) {
-            navigate("/login");
-          } else {
-            console.error("Ошибка при загрузке статистики:", error);
-          }
-        }
-      };
-      fetchStats();
-    }
-  }, [isLoading, token, user, navigate]);
-  const PrivateRoute = ({ children }) => {
-    const { token, user, isLoading } = useAuth();
-    const navigate = useNavigate();
-
-    if (isLoading) {
-      return <div>Загрузка...</div>;
-    }
-
-    if (!token || !user) {
-      navigate("/login");
-      return null;
-    }
-
-    return children;
-  };
   if (isLoading) {
     return (
       <div className="text-center py-10 text-gray-600 dark:text-gray-400">
@@ -192,6 +194,17 @@ const SellerDashboard = () => {
     ],
   };
 
+  // Определяем стили для DatePicker
+  const datePickerSx = {
+    '& .MuiInputBase-root': {
+      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff' : 'inherit',
+      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+    },
+    '& .MuiInputLabel-root': {
+      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <style>{`
@@ -212,8 +225,26 @@ const SellerDashboard = () => {
         >
           📊 Статистика продавца
         </Typography>
-
-        {/* Основные метрики */}
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ruLocale}>
+          <Grid container spacing={2} alignItems="center" className="mb-4">
+            <Grid item>
+              <DatePicker
+                label="От"
+                value={startDate}
+                onChange={(newValue) => setStartDate(newValue)}
+                renderInput={(params) => <TextField {...params} sx={datePickerSx} />}
+              />
+            </Grid>
+            <Grid item>
+              <DatePicker
+                label="До"
+                value={endDate}
+                onChange={(newValue) => setEndDate(newValue)}
+                renderInput={(params) => <TextField {...params} sx={datePickerSx} />}
+              />
+            </Grid>
+          </Grid>
+        </LocalizationProvider>
         <Grid container spacing={3} className="mb-8">
           {[
             {
@@ -265,8 +296,6 @@ const SellerDashboard = () => {
             </Grid>
           ))}
         </Grid>
-
-        {/* Графики и таблицы */}
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
@@ -299,7 +328,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -325,7 +353,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -351,7 +378,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -368,7 +394,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -385,7 +410,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -402,7 +426,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -419,7 +442,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -436,7 +458,6 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-
           <Grid item xs={12}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -482,7 +503,6 @@ const SellerDashboard = () => {
               </TableContainer>
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={6}>
             <Paper className="p-6 text-center bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
@@ -505,7 +525,6 @@ const SellerDashboard = () => {
               </Typography>
             </Paper>
           </Grid>
-
           <Grid item xs={12}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
