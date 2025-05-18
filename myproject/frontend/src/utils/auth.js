@@ -27,7 +27,20 @@ export const isAdmin = () => {
   return false;
 };
 
-// Выход (удаление токена)
+// Выход (удаление токена и закрытие соединений)
 export const logout = () => {
+  // Close any active WebSocket connections
+  document.querySelectorAll('[data-websocket-connection]').forEach(element => {
+    try {
+      const wsConnection = element.dataset.websocketConnection;
+      if (wsConnection && typeof wsConnection.close === 'function') {
+        wsConnection.close();
+      }
+    } catch (e) {
+      console.error('Error closing WebSocket connection:', e);
+    }
+  });
+  
+  // Remove token
   removeToken();
 };

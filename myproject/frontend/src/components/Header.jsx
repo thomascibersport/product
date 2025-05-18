@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -7,10 +7,22 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
-import { getUser } from "../api/auth";
 import { getToken } from "../utils/auth";
 import { AuthContext } from "../AuthContext";
 import axios from "axios";
+
+// Throttle function to limit API calls
+const throttle = (func, delay) => {
+  let lastCall = 0;
+  return function(...args) {
+    const now = new Date().getTime();
+    if (now - lastCall < delay) {
+      return;
+    }
+    lastCall = now;
+    return func(...args);
+  };
+};
 
 function Header() {
   const { user, token, logout, setUser } = useContext(AuthContext);
@@ -20,47 +32,100 @@ function Header() {
   });
   const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
   const [hasMessages, setHasMessages] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
+  const intervalRef = useRef(null);
+  const isLoadingRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
     localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = getToken();
-        if (!token) {
-          setIsAuthenticated(false);
-          return;
+  // Create a throttled fetch function to prevent too many API calls
+  const fetchUserAndMessageData = useCallback(async () => {
+    // Don't make a request if we're already loading or not authenticated
+    if (isLoadingRef.current || !getToken()) return;
+    
+    try {
+      isLoadingRef.current = true;
+      const token = getToken();
+      if (!token) {
+        setIsAuthenticated(false);
+        return;
+      }
+      
+      // Use the combined endpoint
+      const response = await axios.get(
+        "http://localhost:8000/api/users/messages-data/",
+        {
+          headers: { Authorization: `Bearer ${token}` },
         }
-        const response = await getUser(token);
-        setUser(response.data);
-        setIsAuthenticated(true);
+      );
+      
+      // Update state with all the data
+      setUser(response.data.user);
+      setIsAuthenticated(true);
+      setHasMessages(response.data.has_messages);
+      setUnreadCount(response.data.unread_count);
+    } catch (error) {
+      console.error("Ошибка загрузки данных:", error);
+      if (error.response && error.response.status === 401) {
+        logout();
+        setIsAuthenticated(false);
+        navigate("/login");
+      }
+    } finally {
+      // Set loading to false after a slight delay to prevent rapid consecutive calls
+      setTimeout(() => {
+        isLoadingRef.current = false;
+      }, 1000); // 1 second delay as requested
+    }
+  }, [setUser, navigate, logout]);
+  
+  // Throttle the function to prevent too frequent calls
+  const throttledFetch = useCallback(throttle(fetchUserAndMessageData, 5000), [fetchUserAndMessageData]);
 
-        if (!response.data.is_staff) {
-          const messagesResponse = await axios.get(
-            "http://localhost:8000/api/messages/has-messages/",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          setHasMessages(messagesResponse.data.has_messages);
-        }
-      } catch (error) {
-        console.error(
-          "Ошибка загрузки данных пользователя или сообщений:",
-          error
-        );
-        handleLogout();
+  // Initial data fetch - only run once on mount
+  useEffect(() => {
+    fetchUserAndMessageData();
+    
+    // Clean up function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
     };
-
-    fetchUserData();
-  }, [navigate, setUser]);
+  // Empty dependency array means this runs exactly once on mount
+  }, []); 
+  
+  // Set up polling for data updates at reasonable intervals
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    
+    // Don't set up polling if user is not authenticated or is staff
+    if (!isAuthenticated || (user && user.is_staff)) return;
+    
+    // Set up interval with longer delay (10 seconds instead of 1 minute)
+    intervalRef.current = setInterval(throttledFetch, 10000);
+    
+    // Clean up on unmount or when dependencies change
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isAuthenticated, user, throttledFetch]);
 
   const handleLogout = () => {
+    // Clear interval on logout
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    
     logout();
     setIsAuthenticated(false);
     navigate("/login");
@@ -105,8 +170,13 @@ function Header() {
               Статистика
             </Link>
             {hasMessages && (
-              <Link to="/messages" className="hover:text-gray-300">
+              <Link to="/messages" className="hover:text-gray-300 relative">
                 Сообщения
+                {unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </Link>
             )}
             <Link

@@ -36,9 +36,9 @@ const CartPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deliveryType, setDeliveryType] = useState("delivery");
-  const [paymentType, setPaymentType] = useState("cash");
+  const [paymentType, setPaymentType] = useState("card");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [errorMessage, setErrorMessage] = useState(""); // Состояние для сообщения об ошибке
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   const [showCardModal, setShowCardModal] = useState(false);
@@ -112,11 +112,12 @@ const CartPage = () => {
     }
   }, [hasDeliveryAvailable, deliveryType]);
 
+  // Ограничение оплаты при доставке только картой
   useEffect(() => {
-    if (paymentType === "card") {
-      setShowCardModal(true);
+    if (deliveryType === "delivery") {
+      setPaymentType("card");
     }
-  }, [paymentType]);
+  }, [deliveryType]);
 
   const updateQuantity = async (itemId, newQuantity) => {
     const token = Cookies.get("token");
@@ -183,29 +184,12 @@ const CartPage = () => {
     return true;
   };
 
-  const handleCreateOrder = async () => {
+  const sendOrder = async () => {
     const token = Cookies.get("token");
     if (!token) {
       navigate("/login");
       return;
     }
-
-    if (cartItems.length === 0) {
-      setErrorMessage("Корзина пуста!");
-      return;
-    }
-
-    const total = calculateTotal();
-    if (total < 2000) {
-      setErrorMessage(`Минимальная сумма заказа 2000 рублей. Сейчас в корзине на ${total.toFixed(2)} рублей.`);
-      return;
-    }
-
-    if (deliveryType === "delivery" && !deliveryAddress.trim()) {
-      setErrorMessage("Пожалуйста, укажите адрес доставки");
-      return;
-    }
-
     try {
       const orderData = {
         delivery_type: deliveryType,
@@ -227,6 +211,7 @@ const CartPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCartItems([]);
+      setShowCardModal(false);
       navigate("/orders");
     } catch (error) {
       let errorMessage = "Ошибка оформления заказа";
@@ -244,14 +229,43 @@ const CartPage = () => {
     }
   };
 
+  const handleCreateOrder = () => {
+    if (cartItems.length === 0) {
+      setErrorMessage("Корзина пуста!");
+      return;
+    }
+
+    const total = calculateTotal();
+    if (total < 2000) {
+      setErrorMessage(`Минимальная сумма заказа 2000 рублей. Сейчас в корзине на ${total.toFixed(2)} рублей.`);
+      return;
+    }
+
+    if (deliveryType === "delivery" && !deliveryAddress.trim()) {
+      setErrorMessage("Пожалуйста, укажите адрес доставки");
+      return;
+    }
+
+    if (paymentType === "card") {
+      setShowCardModal(true);
+    } else {
+      sendOrder();
+    }
+  };
+
   const handlePaymentTypeChange = (e) => {
+    if (deliveryType === "delivery" && e.target.value === "cash") {
+      setErrorMessage("При доставке доступна только оплата картой");
+      return;
+    }
     setPaymentType(e.target.value);
-    setShowCardModal(e.target.value === "card");
   };
 
   const handleCancelCard = () => {
     setShowCardModal(false);
-    setPaymentType("cash");
+    if (deliveryType !== "delivery") {
+      setPaymentType("cash");
+    }
   };
 
   useEffect(() => {
@@ -494,6 +508,11 @@ const CartPage = () => {
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                     Способ оплаты
                   </h3>
+                  {deliveryType === "delivery" && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      При доставке доступна только оплата картой.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <label
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -521,10 +540,12 @@ const CartPage = () => {
                     </label>
 
                     <label
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentType === "cash"
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-gray-200 dark:border-gray-700 hover:border-blue-300"
+                      className={`p-4 rounded-xl border-2 transition-all ${
+                        deliveryType === "delivery"
+                          ? "border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed"
+                          : paymentType === "cash"
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 cursor-pointer"
+                          : "border-gray-200 dark:border-gray-700 hover:border-blue-300 cursor-pointer"
                       }`}
                     >
                       <input
@@ -533,6 +554,7 @@ const CartPage = () => {
                         value="cash"
                         checked={paymentType === "cash"}
                         onChange={handlePaymentTypeChange}
+                        disabled={deliveryType === "delivery"}
                         className="hidden"
                       />
                       <div className="space-y-2">
@@ -645,7 +667,11 @@ const CartPage = () => {
                     Отмена
                   </button>
                   <button
-                    onClick={handleCreateOrder}
+                    onClick={() => {
+                      if (validateCardDetails()) {
+                        sendOrder();
+                      }
+                    }}
                     className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg"
                   >
                     Оплатить

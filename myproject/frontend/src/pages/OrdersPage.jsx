@@ -8,6 +8,12 @@ import "moment/locale/ru";
 import "../index.css";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "chart.js/auto";
+import { Bar } from "react-chartjs-2";
+import Chart from "chart.js/auto";
+import ChartDataLabels from "chartjs-plugin-datalabels";
+
+Chart.register(ChartDataLabels);
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -22,6 +28,8 @@ const OrdersPage = () => {
   const [maxAmount, setMaxAmount] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(10);
+  const [totalSum, setTotalSum] = useState(0);
+  const [topSellers, setTopSellers] = useState([]);
   const navigate = useNavigate();
 
   const waveAnimation = `
@@ -65,7 +73,7 @@ const OrdersPage = () => {
         const response = await axios.get("http://localhost:8000/api/orders/", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        console.log("Orders data:", response.data); // Добавьте это
+        console.log("Orders data:", response.data);
         setOrders(response.data);
         setFilteredOrders(response.data);
       } catch (err) {
@@ -129,6 +137,41 @@ const OrdersPage = () => {
     maxAmount,
     orders,
   ]);
+
+  useEffect(() => {
+    const sum = filteredOrders.reduce(
+      (acc, order) => acc + parseFloat(order.total_amount),
+      0
+    );
+    setTotalSum(sum.toFixed(2));
+
+    const sellerMap = {};
+    filteredOrders.forEach((order) => {
+      if (
+        order.items &&
+        order.items.length > 0 &&
+        order.items[0].product &&
+        order.items[0].product.farmer
+      ) {
+        const farmer = order.items[0].product.farmer;
+        const key = farmer.id;
+        if (!sellerMap[key]) {
+          sellerMap[key] = {
+            farmer,
+            count: 0,
+            total: 0,
+          };
+        }
+        sellerMap[key].count += 1;
+        sellerMap[key].total += parseFloat(order.total_amount);
+      }
+    });
+
+    const topSellersArray = Object.values(sellerMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+    setTopSellers(topSellersArray);
+  }, [filteredOrders]);
 
   const formatDate = (dateString) =>
     moment(dateString).format("DD.MM.YYYY HH:mm");
@@ -213,6 +256,67 @@ const OrdersPage = () => {
       </div>
     );
 
+  const barData = {
+    labels: topSellers.map(
+      (seller) => `${seller.farmer.first_name} ${seller.farmer.last_name}`
+    ),
+    datasets: [
+      {
+        label: "Сумма продаж (₽)",
+        data: topSellers.map((seller) => seller.total),
+        backgroundColor: topSellers.map((_, index) => [
+          "#FF6384",
+          "#36A2EB",
+          "#FFCE56",
+          "#4BC0C0",
+          "#9966FF",
+        ][index % 5]),
+      },
+      {
+        label: "Количество заказов",
+        data: topSellers.map((seller) => seller.count),
+        backgroundColor: topSellers.map((_, index) => [
+          "#FF6384",
+          "#36A2EB",
+          "#FFCE56",
+          "#4BC0C0",
+          "#9966FF",
+        ][index % 5]),
+      },
+    ],
+  };
+
+  const barOptions = {
+    indexAxis: "y",
+    responsive: true,
+    plugins: {
+      legend: {
+        display: true,
+        position: "top",
+      },
+      title: {
+        display: true,
+        text: "Топ продавцов по сумме продаж и количеству заказов",
+      },
+      datalabels: {
+        anchor: "end",
+        align: "end",
+        formatter: (value, context) => {
+          if (context.dataset.label === "Сумма продаж (₽)") {
+            return `${value.toFixed(2)} ₽`;
+          } else {
+            return `${value} заказов`;
+          }
+        },
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+      },
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <style>{waveAnimation}</style>
@@ -220,8 +324,18 @@ const OrdersPage = () => {
       <ToastContainer />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8 text-center">
-          📦 История заказов
+          📦 Мои заказы
         </h1>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+            Общая сумма заказов: {totalSum} ₽
+          </h2>
+        </div>
+        <div className="mb-8">
+          <div className="w-full max-w-md mx-auto">
+            <Bar data={barData} options={barOptions} />
+          </div>
+        </div>
         <div className="mb-8 space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
             <input
@@ -360,6 +474,7 @@ const OrdersPage = () => {
                         {[
                           "processing",
                           "confirmed",
+                          "vorgelegt",
                           "shipped",
                           "in_transit",
                           "delivered",
@@ -429,8 +544,7 @@ const OrdersPage = () => {
                                   {item.product.seller_address || "Не указан"}
                                 </p>
                                 <p>
-                                  Контакты:{" "}
-                                  {item.farmer?.phone || "Не указаны"}
+                                  Контакты: {item.farmer?.phone || "Не указаны"}
                                 </p>
                               </div>
                             )}
@@ -441,8 +555,7 @@ const OrdersPage = () => {
                                 {item.product.seller_address || "Не указан"}
                               </p>
                               <p>
-                                Контакты:{" "}
-                                {item.farmer?.phone || "Не указаны"}
+                                Контакты: {item.farmer?.phone || "Не указаны"}
                               </p>
                             </div>
                           )}

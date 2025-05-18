@@ -28,6 +28,23 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Close any active WebSocket connections
+    const wsElements = document.querySelectorAll('[data-websocket-connection]');
+    wsElements.forEach(element => {
+      try {
+        if (element.websocket && typeof element.websocket.close === 'function') {
+          element.websocket.close();
+        }
+      } catch (e) {
+        console.error('Error closing WebSocket connection:', e);
+      }
+      
+      // Remove the element from DOM
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    });
+    
     setToken(null);
     setUser(null);
     setHasMessages(false);

@@ -201,13 +201,17 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     average_rating = serializers.FloatField(read_only=True)
+    successful_deals = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating', 'successful_deals']
         extra_kwargs = {
             'show_phone': {'required': False, 'allow_null': True}
         }
+
+    def get_successful_deals(self, obj):
+        return Order.objects.filter(items__product__farmer=obj, status='delivered').distinct().count()
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)

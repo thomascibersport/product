@@ -69,7 +69,7 @@ const UserProfile = () => {
     try {
       await axios.post(
         `http://localhost:8000/api/messages/send/`,
-        { recipient: id, content: message },
+        { recipient_id: id, content: message },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMessage("");
@@ -224,6 +224,9 @@ const UserProfile = () => {
                 </div>
               )}
             </div>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              <strong>Успешных сделок:</strong> {user.successful_deals || 0}
+            </p>
             {token && (
               <button
                 onClick={() => setIsModalOpen(true)}

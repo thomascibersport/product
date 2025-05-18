@@ -21,16 +21,97 @@ const AddProductModal = React.memo(
   }) => {
     const [localState, setLocalState] = useState(formState);
     const [localImagePreview, setLocalImagePreview] = useState(imagePreview);
+    const [addressSuggestions, setAddressSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isAddressSelected, setIsAddressSelected] = useState(false);
+    const [localFormErrors, setLocalFormErrors] = useState({});
     const modalRef = useRef(null);
+    const addressInputRef = useRef(null);
+    const suggestionsRef = useRef(null);
+
+    useEffect(() => {
+      // Load Yandex Maps API script when component mounts
+      const script = document.createElement('script');
+      script.src = 'https://api-maps.yandex.ru/2.1/?apikey=f2749db0-14ee-4f82-b043-5bb8082c4aa9&lang=ru_RU';
+      script.async = true;
+      document.body.appendChild(script);
+
+      return () => {
+        document.body.removeChild(script);
+      };
+    }, []);
 
     useEffect(() => {
       setLocalState(formState);
       setLocalImagePreview(imagePreview);
-    }, [formState, imagePreview]);
+      setIsAddressSelected(!!formState.id); // If editing, consider address as selected
+      setLocalFormErrors(formErrors); // Update local errors when formErrors prop changes
+    }, [formState, imagePreview, formErrors]);
+
+    // Close suggestions dropdown when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (
+          addressInputRef.current && 
+          !addressInputRef.current.contains(event.target) &&
+          suggestionsRef.current && 
+          !suggestionsRef.current.contains(event.target)
+        ) {
+          setShowSuggestions(false);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, []);
 
     const handleChange = useCallback((field, value) => {
       setLocalState((prev) => ({ ...prev, [field]: value }));
     }, []);
+
+    const fetchAddressSuggestions = useCallback(async (query) => {
+      if (!query || query.length < 3) {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get(
+          `https://geocode-maps.yandex.ru/1.x/`, {
+            params: {
+              apikey: 'f2749db0-14ee-4f82-b043-5bb8082c4aa9',
+              format: 'json',
+              geocode: query,
+              results: 5
+            }
+          }
+        );
+
+        const features = response.data.response.GeoObjectCollection.featureMember;
+        const suggestions = features.map(feature => feature.GeoObject.metaDataProperty.GeocoderMetaData.text);
+        
+        setAddressSuggestions(suggestions);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('Error fetching address suggestions:', error);
+      }
+    }, []);
+
+    const handleAddressChange = useCallback((e) => {
+      const value = e.target.value;
+      handleChange("seller_address", value);
+      fetchAddressSuggestions(value);
+      setIsAddressSelected(false); // Reset flag when user types
+    }, [handleChange, fetchAddressSuggestions]);
+
+    const selectAddress = useCallback((address) => {
+      handleChange("seller_address", address);
+      setShowSuggestions(false);
+      setIsAddressSelected(true); // Set flag when address is selected from dropdown
+    }, [handleChange]);
 
     const handleFileChange = useCallback(
       (e) => {
@@ -46,9 +127,19 @@ const AddProductModal = React.memo(
     const handleSubmitForm = useCallback(
       (e) => {
         e.preventDefault();
+        
+        // Validate that address was selected from dropdown
+        if (!isAddressSelected && localState.seller_address.trim() !== '') {
+          setLocalFormErrors(prev => ({
+            ...prev, 
+            seller_address: "Пожалуйста, выберите адрес из выпадающего списка"
+          }));
+          return;
+        }
+        
         onSubmit(localState);
       },
-      [localState, onSubmit]
+      [localState, onSubmit, isAddressSelected]
     );
 
     const handleOverlayClick = useCallback(
@@ -112,14 +203,14 @@ const AddProductModal = React.memo(
                     required
                     autoFocus
                     className={`w-full px-3 py-2 rounded-lg border-2 text-gray-900 dark:text-gray-200 ${
-                      formErrors.name
+                      localFormErrors.name
                         ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
                   />
-                  {formErrors.name && (
+                  {localFormErrors.name && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      ⚠️ {formErrors.name}
+                      ⚠️ {localFormErrors.name}
                     </p>
                   )}
                 </div>
@@ -139,7 +230,7 @@ const AddProductModal = React.memo(
                       placeholder="0.00"
                       required
                       className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                        formErrors.price
+                        localFormErrors.price
                           ? "border-red-500"
                           : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                       } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all pr-16`}
@@ -148,9 +239,9 @@ const AddProductModal = React.memo(
                       ₽ / {localState.unit || "ед."}
                     </span>
                   </div>
-                  {formErrors.price && (
+                  {localFormErrors.price && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      ⚠️ {formErrors.price}
+                      ⚠️ {localFormErrors.price}
                     </p>
                   )}
                 </div>
@@ -167,14 +258,14 @@ const AddProductModal = React.memo(
                   rows="2"
                   required
                   className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                    formErrors.description
+                    localFormErrors.description
                       ? "border-red-500"
                       : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                   } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
                 />
-                {formErrors.description && (
+                {localFormErrors.description && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    ⚠️ {formErrors.description}
+                    ⚠️ {localFormErrors.description}
                   </p>
                 )}
               </div>
@@ -194,14 +285,14 @@ const AddProductModal = React.memo(
                     placeholder="Введите количество"
                     required
                     className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                      formErrors.quantity
+                      localFormErrors.quantity
                         ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
                   />
-                  {formErrors.quantity && (
+                  {localFormErrors.quantity && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      ⚠️ {formErrors.quantity}
+                      ⚠️ {localFormErrors.quantity}
                     </p>
                   )}
                 </div>
@@ -215,7 +306,7 @@ const AddProductModal = React.memo(
                     onChange={(e) => handleChange("unit", e.target.value)}
                     required
                     className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                      formErrors.unit
+                      localFormErrors.unit
                         ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
@@ -242,7 +333,7 @@ const AddProductModal = React.memo(
                     onChange={(e) => handleChange("category", e.target.value)}
                     required
                     className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                      formErrors.category
+                      localFormErrors.category
                         ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                     } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all bg-white dark:bg-gray-800`}
@@ -262,20 +353,48 @@ const AddProductModal = React.memo(
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     Адрес продавца
                   </label>
-                  <input
-                    type="text"
-                    value={localState.seller_address}
-                    onChange={(e) =>
-                      handleChange("seller_address", e.target.value)
-                    }
-                    placeholder="Введите адрес пункта выдачи"
-                    className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
-                      formErrors.seller_address
-                        ? "border-red-500"
-                        : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                    } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
-                  />
-                  {formErrors.seller_address && (
+                  <div className="relative">
+                    <input
+                      ref={addressInputRef}
+                      type="text"
+                      value={localState.seller_address}
+                      onChange={handleAddressChange}
+                      onFocus={() => localState.seller_address.length >= 3 && setShowSuggestions(true)}
+                      placeholder="Введите адрес пункта выдачи"
+                      className={`w-full px-3 py-2 rounded-lg border-2 text-gray-800 dark:text-gray-200 ${
+                        localFormErrors.seller_address || (!isAddressSelected && localState.seller_address.trim() !== '')
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
+                      } focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800/50 transition-all`}
+                    />
+                    {!isAddressSelected && localState.seller_address.trim() !== '' && (
+                      <p className="mt-1 text-sm text-yellow-600 dark:text-yellow-400">
+                        ⚠️ Выберите адрес из предложенных вариантов
+                      </p>
+                    )}
+                    {localFormErrors.seller_address && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        ⚠️ {localFormErrors.seller_address}
+                      </p>
+                    )}
+                    {showSuggestions && addressSuggestions.length > 0 && (
+                      <div 
+                        ref={suggestionsRef}
+                        className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 max-h-60 overflow-auto"
+                      >
+                        {addressSuggestions.map((suggestion, index) => (
+                          <div
+                            key={index}
+                            className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-sm text-gray-800 dark:text-gray-200"
+                            onClick={() => selectAddress(suggestion)}
+                          >
+                            {suggestion}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {formErrors.seller_address && !localFormErrors.seller_address && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                       ⚠️ {formErrors.seller_address}
                     </p>
@@ -290,7 +409,7 @@ const AddProductModal = React.memo(
                 <div className="flex items-center justify-center w-full">
                   <label
                     className={`flex flex-col w-full rounded-lg border-2 border-dashed ${
-                      formErrors.image
+                      localFormErrors.image
                         ? "border-red-500"
                         : "border-gray-200 dark:border-gray-700 hover:border-blue-500"
                     } transition-all cursor-pointer`}
@@ -331,9 +450,9 @@ const AddProductModal = React.memo(
                     />
                   </label>
                 </div>
-                {formErrors.image && (
+                {localFormErrors.image && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    ⚠️ {formErrors.image}
+                    ⚠️ {localFormErrors.image}
                   </p>
                 )}
               </div>

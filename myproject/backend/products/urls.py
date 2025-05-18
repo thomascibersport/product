@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from products.views import (
     ProductList, ProductCreate, CategoryList, ProductDetail, CartItemViewSet,
     OrderViewSet, MyProductsList, UserProductsList, UserProfileView, UpdateProfileView,
-    send_message, has_messages, ChatListView, ChatMessagesView, UploadFileView,
+    send_message, has_messages, unread_messages_count, user_message_data, ChatListView, ChatListWithDetailsView, ChatMessagesView, UploadFileView,
     MessageDetailView, MessageDeleteView, ReviewListCreateView, ReviewDetailView,
     SellerStatisticsView, 
     AdminUserViewSet, AdminProductViewSet, AdminCategoryViewSet, AdminCartItemViewSet,
@@ -54,9 +54,12 @@ urlpatterns = [
     path('users/update/', UpdateProfileView.as_view(), name='update-profile'),
     path("messages/send/", send_message, name="send_message"),
     path("messages/has-messages/", has_messages, name="has_messages"),
+    path("messages/unread-count/", unread_messages_count, name="unread_messages_count"),
     path("messages/chats/", ChatListView.as_view(), name="chat_list"),
+    path("messages/chats-with-details/", ChatListWithDetailsView.as_view(), name="chat_list_with_details"),
     path("messages/chat/<int:pk>/", ChatMessagesView.as_view(), name="chat_messages"),
     path('users/me/', CurrentUserView.as_view(), name='current-user'),
+    path('users/messages-data/', user_message_data, name='user_message_data'),
     path('upload/', UploadFileView.as_view(), name='upload-file'),
     path('messages/<int:pk>/', MessageDetailView.as_view(), name='message-detail'),
     path('messages/<int:pk>/delete/', MessageDeleteView.as_view(), name='message-delete'),
@@ -64,4 +67,5 @@ urlpatterns = [
     path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
     path('seller-statistics/', SellerStatisticsView.as_view(), name='seller-statistics'),
     path('assistant/', GPTAssistantView.as_view(), name='gpt-assistant'),
+    path('assistant/recipe', GPTAssistantView.as_view(), name='gpt-assistant-recipe'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

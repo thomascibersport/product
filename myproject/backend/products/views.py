@@ -16,9 +16,10 @@ from django.db.models import (
     When,
     IntegerField,
     OuterRef,
+    DateTimeField,
 )
 from django.conf import settings
-from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay
+from django.db.models.functions import ExtractHour, TruncMonth, ExtractIsoWeekDay, TruncDate, ExtractMonth, ExtractWeekDay
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.views.generic import TemplateView
@@ -58,7 +59,9 @@ from .serializers import (
 from yandexcloud import SDK
 import requests
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+from decimal import Decimal
+import json
 User = get_user_model()
 
 
@@ -323,11 +326,119 @@ def send_message(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def user_message_data(request):
+    """
+    Get user data along with message status and unread message count in a single request
+    """
+    user = request.user
+    
+    # Use Django's cache framework if available
+    # or implement a simple in-memory cache with timeout
+    cache_key = f"user_message_data_{user.id}"
+    cache_timeout = 5  # 5 seconds cache
+    
+    # Check if we have this data in request session cache
+    # This helps prevent excessive database queries
+    if hasattr(request, '_cached_data') and cache_key in request._cached_data:
+        cached_item = request._cached_data[cache_key]
+        # Check if cache is still valid
+        if cached_item['expires'] > timezone.now():
+            return Response(cached_item['data'])
+    
+    # Data not in cache, fetch from database
+    # Check if user has any messages
+    has_messages = Message.objects.filter(Q(sender=user) | Q(recipient=user)).exists()
+    
+    # Get unread message count
+    unread_count = Message.objects.filter(recipient=user, is_read=False).count()
+    
+    # Prepare response data
+    response_data = {
+        "user": UserSerializer(user, context={"request": request}).data,
+        "has_messages": has_messages,
+        "unread_count": unread_count
+    }
+    
+    # Store in request cache
+    if not hasattr(request, '_cached_data'):
+        request._cached_data = {}
+    
+    request._cached_data[cache_key] = {
+        'data': response_data,
+        'expires': timezone.now() + timedelta(seconds=cache_timeout)
+    }
+    
+    return Response(response_data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def unread_messages_count(request):
+    user = request.user
+    count = Message.objects.filter(recipient=user, is_read=False).count()
+    return Response({"unread_count": count})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def has_messages(request):
     user = request.user
     # Проверяем, есть ли сообщения, где пользователь — отправитель или получатель
     has_messages = Message.objects.filter(Q(sender=user) | Q(recipient=user)).exists()
     return Response({"has_messages": has_messages})
+
+
+class ChatListWithDetailsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Get all users with whom the current user has exchanged messages
+        sent_messages = Message.objects.filter(sender=user).values('recipient').distinct()
+        received_messages = Message.objects.filter(recipient=user).values('sender').distinct()
+
+        chat_partners_ids = set()
+        for msg in sent_messages:
+            chat_partners_ids.add(msg['recipient'])
+        for msg in received_messages:
+            chat_partners_ids.add(msg['sender'])
+
+        # Get the partner users
+        partners = User.objects.filter(id__in=chat_partners_ids)
+        
+        result = []
+        for partner in partners:
+            # Get the last message
+            last_message = Message.objects.filter(
+                (Q(sender=user) & Q(recipient=partner)) | 
+                (Q(sender=partner) & Q(recipient=user)),
+                is_deleted=False
+            ).order_by('-timestamp').first()
+            
+            # Count unread messages
+            unread_count = Message.objects.filter(
+                sender=partner,
+                recipient=user,
+                is_read=False,
+                is_deleted=False
+            ).count()
+            
+            # Prepare the partner data
+            partner_data = UserSerializer(partner, context={"request": request}).data
+            
+            # Add last message and unread count
+            partner_data['last_message'] = MessageSerializer(last_message).data if last_message else None
+            partner_data['unread_count'] = unread_count
+            
+            result.append(partner_data)
+        
+        # Sort by last message timestamp (newest first)
+        result.sort(
+            key=lambda x: x['last_message']['timestamp'] if x['last_message'] else '1970-01-01T00:00:00Z',
+            reverse=True
+        )
+        
+        return Response(result)
 
 
 class ChatListView(APIView):
@@ -364,6 +475,14 @@ class ChatMessagesView(APIView):
             | (Q(sender=partner) & Q(recipient=user)),
             is_deleted=False,  # Фильтруем удаленные сообщения
         ).order_by("timestamp")
+        
+        # Mark all messages from the partner as read
+        Message.objects.filter(
+            sender=partner,
+            recipient=user,
+            is_read=False
+        ).update(is_read=True)
+        
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
 
@@ -938,18 +1057,8 @@ class GPTAssistantView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
         elif query_type == "recipe":
-            # For recipe, construct the prompt
-            orders = Order.objects.filter(user=request.user).prefetch_related(
-                "items__product"
-            )
-            products = set()
-            for order in orders:
-                for item in order.items.all():
-                    if item.product:
-                        products.add(item.product.name)
-            products_list = ", ".join(products)
-            prompt = f"Вы - ИИ-помощник по фермерским продуктам. У пользователя есть следующие продукты: {products_list}. Предложите рецепт, который можно приготовить из этих продуктов."
-            messages = [{"role": "user", "text": prompt}]
+            # Handle redirecting to the recipe endpoint for backwards compatibility
+            return self.get_recipe(request)
         else:
             return Response(
                 {"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST
@@ -974,6 +1083,73 @@ class GPTAssistantView(APIView):
             "Content-Type": "application/json",
         }
 
+        try:
+            response = requests.post(gpt_url, headers=headers, json=request_body)
+            response.raise_for_status()
+            gpt_response = response.json()
+            text = gpt_response["result"]["alternatives"][0]["message"]["text"]
+            return Response({"response": text})
+        except requests.exceptions.RequestException as e:
+            error_message = f"Ошибка при запросе к GPT: {str(e)}"
+            return Response(
+                {"error": error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get_recipe(self, request):
+        # Get days parameter from request, default to 3
+        days = request.data.get("days", 3)
+        
+        # Calculate date for 'days' days ago
+        from_date = timezone.now() - timedelta(days=int(days))
+        
+        # Get orders from last 'days' days
+        orders = Order.objects.filter(
+            user=request.user,
+            created_at__gte=from_date
+        ).prefetch_related("items__product")
+        
+        if not orders.exists():
+            return Response(
+                {"response": "У вас нет заказов за последние 3 дня. Попробуйте сделать новый заказ или запросить общий рецепт."},
+                status=status.HTTP_200_OK
+            )
+        
+        # Get unique products from orders
+        products = set()
+        for order in orders:
+            for item in order.items.all():
+                if item.product:
+                    products.add(item.product.name)
+        
+        # If no products found
+        if not products:
+            return Response(
+                {"response": "Не удалось найти продукты в ваших заказах за последние 3 дня."},
+                status=status.HTTP_200_OK
+            )
+        
+        products_list = ", ".join(products)
+        prompt = f"Вы - ИИ-помощник по фермерским продуктам. У пользователя есть следующие продукты из заказов за последние {days} дней: {products_list}. Предложите рецепт, который можно приготовить из этих продуктов. Предложите полный рецепт с шагами приготовления."
+        
+        # Construct the request body for Yandex GPT
+        model_uri = f"gpt://{settings.FOLDER_ID}/yandexgpt-lite"
+        request_body = {
+            "modelUri": model_uri,
+            "completionOptions": {
+                "stream": False,
+                "temperature": 0.6,
+                "maxTokens": 500,  # Increased token count for detailed recipe
+            },
+            "messages": [{"role": "user", "text": prompt}],
+        }
+        
+        # Make request to Yandex GPT API
+        gpt_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
+        headers = {
+            "Authorization": f"Api-Key {settings.API_KEY}",
+            "Content-Type": "application/json",
+        }
+        
         try:
             response = requests.post(gpt_url, headers=headers, json=request_body)
             response.raise_for_status()
