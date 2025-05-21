@@ -352,8 +352,8 @@ function AdminDashboard() {
 
   const openChatView = async (senderId, recipientId) => {
     try {
-      // Get messages from the API - using the messages/chat endpoint instead of a direct URL
-      const response = await axios.get(`${API_URL}messages/chat/${senderId}/`, {
+      // Get messages from the API using the correct endpoint
+      const response = await axios.get(`${API_URL}messages/chat/${senderId}/${recipientId}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -361,15 +361,8 @@ function AdminDashboard() {
       const sender = users.find(user => user.id === senderId);
       const recipient = users.find(user => user.id === recipientId);
       
-      // Filter messages to only show those between these two users
-      const filteredMessages = response.data.filter(
-        message => 
-          (message.sender.id === senderId && message.recipient.id === recipientId) || 
-          (message.sender.id === recipientId && message.recipient.id === senderId)
-      );
-      
       setChatData({
-        messages: filteredMessages,
+        messages: response.data,
         sender,
         recipient
       });

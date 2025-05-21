@@ -7,7 +7,8 @@ from products.views import (
     MessageDetailView, MessageDeleteView, ReviewListCreateView, ReviewDetailView,
     SellerStatisticsView, 
     AdminUserViewSet, AdminProductViewSet, AdminCategoryViewSet, AdminCartItemViewSet,
-    AdminOrderViewSet, AdminMessageViewSet, AdminReviewViewSet, GPTAssistantView
+    AdminOrderViewSet, AdminMessageViewSet, AdminReviewViewSet, GPTAssistantView,
+    ChatMessagesBetweenUsersView
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -58,6 +59,7 @@ urlpatterns = [
     path("messages/chats/", ChatListView.as_view(), name="chat_list"),
     path("messages/chats-with-details/", ChatListWithDetailsView.as_view(), name="chat_list_with_details"),
     path("messages/chat/<int:pk>/", ChatMessagesView.as_view(), name="chat_messages"),
+    path("messages/chat/<int:sender_id>/<int:recipient_id>/", ChatMessagesBetweenUsersView.as_view(), name="chat_messages_between_users"),
     path('users/me/', CurrentUserView.as_view(), name='current-user'),
     path('users/messages-data/', user_message_data, name='user_message_data'),
     path('upload/', UploadFileView.as_view(), name='upload-file'),

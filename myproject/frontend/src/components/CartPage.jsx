@@ -12,6 +12,12 @@ const cardTypeImages = {
   amex: "https://upload.wikimedia.org/wikipedia/commons/3/30/American_Express_logo.svg",
 };
 
+// Function to truncate text to a specific length
+const truncateText = (text, maxLength = 25) => {
+  if (!text) return "";
+  return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+};
+
 const detectCardType = (number) => {
   const cleaned = number.replace(/\D/g, "");
   const patterns = {
@@ -332,7 +338,7 @@ const CartPage = () => {
                     )}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Продавец: {item.product.farmer_name}
+                    Продавец: {truncateText(item.product.farmer_name)}
                   </p>
 
                   <div className="flex items-center space-x-4">

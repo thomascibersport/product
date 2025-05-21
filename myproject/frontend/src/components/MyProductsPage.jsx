@@ -6,6 +6,7 @@ import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { loadYandexMapsApi } from "../utils/yandexMaps";
 
 const AddProductModal = React.memo(
   ({
@@ -28,18 +29,33 @@ const AddProductModal = React.memo(
     const modalRef = useRef(null);
     const addressInputRef = useRef(null);
     const suggestionsRef = useRef(null);
+    const [yandexMapsLoaded, setYandexMapsLoaded] = useState(false);
 
+    // Prevent body scrolling when modal is open
     useEffect(() => {
-      // Load Yandex Maps API script when component mounts
-      const script = document.createElement('script');
-      script.src = 'https://api-maps.yandex.ru/2.1/?apikey=f2749db0-14ee-4f82-b043-5bb8082c4aa9&lang=ru_RU';
-      script.async = true;
-      document.body.appendChild(script);
-
+      if (isOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = 'auto';
+      }
+      
       return () => {
-        document.body.removeChild(script);
+        document.body.style.overflow = 'auto';
       };
-    }, []);
+    }, [isOpen]);
+
+    // Load Yandex Maps API using the shared utility
+    useEffect(() => {
+      if (isOpen) {
+        loadYandexMapsApi()
+          .then(() => {
+            setYandexMapsLoaded(true);
+          })
+          .catch(error => {
+            console.error('Failed to load Yandex Maps API:', error);
+          });
+      }
+    }, [isOpen]);
 
     useEffect(() => {
       setLocalState(formState);
@@ -72,7 +88,7 @@ const AddProductModal = React.memo(
     }, []);
 
     const fetchAddressSuggestions = useCallback(async (query) => {
-      if (!query || query.length < 3) {
+      if (!query || query.length < 3 || !yandexMapsLoaded) {
         setAddressSuggestions([]);
         setShowSuggestions(false);
         return;
@@ -98,7 +114,7 @@ const AddProductModal = React.memo(
       } catch (error) {
         console.error('Error fetching address suggestions:', error);
       }
-    }, []);
+    }, [yandexMapsLoaded]);
 
     const handleAddressChange = useCallback((e) => {
       const value = e.target.value;
@@ -155,14 +171,16 @@ const AddProductModal = React.memo(
 
     return (
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto"
         onClick={handleOverlayClick}
+        style={{ minHeight: '100vh' }}
       >
         <div
           ref={modalRef}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full my-8"
+          style={{ maxHeight: 'calc(100vh - 4rem)' }}
         >
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
                 {isEditing

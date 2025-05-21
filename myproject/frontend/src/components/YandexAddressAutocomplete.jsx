@@ -1,42 +1,43 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
+import { loadYandexMapsApi } from "../utils/yandexMaps";
 
 const YandexAddressAutocomplete = ({ value, onChange }) => {
   const inputRef = useRef(null);
+  const [suggestView, setSuggestView] = useState(null);
 
   useEffect(() => {
-    // Функция для динамической загрузки скрипта Яндекс.Карт
-    const loadYandexScript = () => {
-      return new Promise((resolve, reject) => {
-        if (window.ymaps) {
-          resolve();
-          return;
+    let isMounted = true;
+    
+    // Use the shared utility to load Yandex Maps
+    loadYandexMapsApi()
+      .then((ymaps) => {
+        if (!isMounted) return;
+        
+        // Create SuggestView once the API is loaded
+        if (inputRef.current && !suggestView) {
+          const newSuggestView = new ymaps.SuggestView(inputRef.current, {
+            // Optional: You can add configuration here
+          });
+          setSuggestView(newSuggestView);
         }
-        const script = document.createElement("script");
-        script.src = "https://api-maps.yandex.ru/2.1/?apikey=e89b14b0-8810-486a-bd99-f972192719d4&lang=ru_RU";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Ошибка загрузки скрипта Яндекс.Карт"));
-        document.body.appendChild(script);
-      });
-    };
-
-    loadYandexScript()
-      .then(() => {
-        // Инициализация SuggestView после загрузки скрипта и готовности API
-        window.ymaps.ready(() => {
-          if (inputRef.current) {
-            // Создаём экземпляр SuggestView, который автоматически подсказывает адреса
-            new window.ymaps.SuggestView(inputRef.current, {
-              // Дополнительно можно задать опции, например, ограничить регион поиска
-              // boundedBy: [[55.5, 37.3], [55.9, 37.8]]
-            });
-          }
-        });
       })
       .catch((error) => {
-        console.error(error);
+        console.error("Error loading Yandex Maps API:", error);
       });
-  }, []);
+    
+    // Cleanup
+    return () => {
+      isMounted = false;
+      if (suggestView) {
+        // Destroy the suggest view if it exists
+        try {
+          suggestView.destroy();
+        } catch (e) {
+          console.warn("Error while destroying SuggestView:", e);
+        }
+      }
+    };
+  }, [suggestView]);
 
   return (
     <input

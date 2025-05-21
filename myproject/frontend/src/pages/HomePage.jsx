@@ -20,6 +20,12 @@ const HomePage = () => {
   const [productsPerPage] = useState(12);
   const [categories, setCategories] = useState([]);
 
+  // Function to truncate text to a specific length
+  const truncateText = (text, maxLength = 18) => {
+    if (!text) return "";
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+  };
+
   useEffect(() => {
     const token = Cookies.get("token");
     const config = token
@@ -273,10 +279,10 @@ const HomePage = () => {
                       </p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
-                        {product.farmer_name || "Неизвестный продавец"}
+                      <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[150px]">
+                        {truncateText(product.farmer_name || "Неизвестный продавец")}
                       </span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         Рейтинг:{" "}
                         {(product.farmer?.average_rating || 0).toFixed(1)} ⭐
                       </span>

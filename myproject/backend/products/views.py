@@ -487,6 +487,20 @@ class ChatMessagesView(APIView):
         return Response(serializer.data)
 
 
+class ChatMessagesBetweenUsersView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, sender_id, recipient_id):
+        messages = Message.objects.filter(
+            (Q(sender_id=sender_id) & Q(recipient_id=recipient_id))
+            | (Q(sender_id=recipient_id) & Q(recipient_id=sender_id)),
+            is_deleted=False
+        ).order_by("timestamp")
+        
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+
 class UploadFileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -896,10 +910,29 @@ class SellerStatisticsView(APIView):
         }
 
     def get_review_stats(self, seller):
-        reviews = Review.objects.filter(recipient=seller)
+        # Current logic - average rating given to the seller
+        seller_reviews = Review.objects.filter(recipient=seller)
+        seller_rating = {
+            "average_rating": seller_reviews.aggregate(Avg("rating"))["rating__avg"] or 0,
+            "total_reviews": seller_reviews.count(),
+        }
+        
+        # Get customer IDs who bought from this seller
+        customer_ids = Order.objects.filter(
+            items__product__farmer=seller,
+            status__in=["confirmed", "shipped", "in_transit", "delivered"]
+        ).values_list('user_id', flat=True).distinct()
+        
+        # Get average rating of those customers (ratings they've received)
+        customer_reviews = Review.objects.filter(recipient_id__in=customer_ids)
+        customer_rating = {
+            "average_rating": customer_reviews.aggregate(Avg("rating"))["rating__avg"] or 0,
+            "total_reviews": customer_reviews.count(),
+        }
+        
         return {
-            "average_rating": reviews.aggregate(Avg("rating"))["rating__avg"] or 0,
-            "total_reviews": reviews.count(),
+            "seller": seller_rating,
+            "customers": customer_rating
         }
 
     def get_customer_purchases(self, seller, start_date=None, end_date=None):
@@ -1114,21 +1147,30 @@ class GPTAssistantView(APIView):
                 status=status.HTTP_200_OK
             )
         
-        # Get unique products from orders
-        products = set()
+        # Get unique products from orders with quantities
+        products_with_quantities = {}
         for order in orders:
             for item in order.items.all():
                 if item.product:
-                    products.add(item.product.name)
+                    product_name = item.product.name
+                    if product_name in products_with_quantities:
+                        products_with_quantities[product_name] += item.quantity
+                    else:
+                        products_with_quantities[product_name] = item.quantity
         
         # If no products found
-        if not products:
+        if not products_with_quantities:
             return Response(
                 {"response": "Не удалось найти продукты в ваших заказах за последние 3 дня."},
                 status=status.HTTP_200_OK
             )
         
-        products_list = ", ".join(products)
+        # Format products with quantities
+        products_list = ", ".join([f"{name} ({qty} шт.)" for name, qty in products_with_quantities.items()])
+        
+        # Create a formatted list for the response
+        formatted_products = "\n".join([f"- {name}: {qty} шт." for name, qty in products_with_quantities.items()])
+        
         prompt = f"Вы - ИИ-помощник по фермерским продуктам. У пользователя есть следующие продукты из заказов за последние {days} дней: {products_list}. Предложите рецепт, который можно приготовить из этих продуктов. Предложите полный рецепт с шагами приготовления."
         
         # Construct the request body for Yandex GPT
@@ -1155,7 +1197,14 @@ class GPTAssistantView(APIView):
             response.raise_for_status()
             gpt_response = response.json()
             text = gpt_response["result"]["alternatives"][0]["message"]["text"]
-            return Response({"response": text})
+            
+            # Add the product list to the beginning of the response
+            final_response = f"Доступные продукты:\n{formatted_products}\n\n{text}"
+            
+            return Response({
+                "response": final_response,
+                "products": [{"name": name, "quantity": qty} for name, qty in products_with_quantities.items()]
+            })
         except requests.exceptions.RequestException as e:
             error_message = f"Ошибка при запросе к GPT: {str(e)}"
             return Response(

@@ -15,6 +15,12 @@ import ChartDataLabels from "chartjs-plugin-datalabels";
 
 Chart.register(ChartDataLabels);
 
+// Function to truncate text to a specific length
+const truncateText = (text, maxLength = 25) => {
+  if (!text) return "";
+  return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+};
+
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
@@ -529,7 +535,7 @@ const OrdersPage = () => {
                                 to={`/users/${item.product.farmer.id}/`}
                                 className="font-medium text-gray-800 dark:text-gray-200 hover:underline"
                               >
-                                {`${item.product.farmer.first_name} ${item.product.farmer.last_name}`.trim()}
+                                {truncateText(`${item.product.farmer.first_name} ${item.product.farmer.last_name}`.trim())}
                               </Link>
                             ) : (
                               "Неизвестен"

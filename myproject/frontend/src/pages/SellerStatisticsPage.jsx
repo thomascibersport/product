@@ -1000,19 +1000,42 @@ const SellerDashboard = () => {
                 variant="h6"
                 className="text-gray-800 dark:text-white mb-4"
               >
-                Средний рейтинг
+                Ваш рейтинг (как продавца)
               </Typography>
               <Typography
                 variant="h2"
                 className="text-purple-600 dark:text-purple-400 font-bold"
               >
-                {stats.review_stats.average_rating.toFixed(1)}/5
+                {stats.review_stats.seller.average_rating.toFixed(1)}/5
               </Typography>
               <Typography
                 variant="body1"
                 className="text-gray-600 dark:text-gray-300"
               >
-                Отзывов: {stats.review_stats.total_reviews}
+                Отзывов: {stats.review_stats.seller.total_reviews}
+              </Typography>
+            </Paper>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Paper className="p-6 text-center bg-white dark:bg-gray-800 shadow-md rounded-lg">
+              <Typography
+                variant="h6"
+                className="text-gray-800 dark:text-white mb-4"
+              >
+                Средний рейтинг ваших покупателей
+              </Typography>
+              <Typography
+                variant="h2"
+                className="text-green-600 dark:text-green-400 font-bold"
+              >
+                {stats.review_stats.customers.average_rating.toFixed(1)}/5
+              </Typography>
+              <Typography
+                variant="body1"
+                className="text-gray-600 dark:text-gray-300"
+              >
+                Отзывов о покупателях: {stats.review_stats.customers.total_reviews}
               </Typography>
             </Paper>
           </Grid>

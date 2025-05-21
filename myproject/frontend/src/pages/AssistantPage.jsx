@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
@@ -16,6 +16,8 @@ const AssistantPage = () => {
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [newChatName, setNewChatName] = useState("");
   const [showChatList, setShowChatList] = useState(false);
+  // Ref для отслеживания кликов вне выпадающего списка
+  const chatListRef = useRef(null);
 
   // Загрузка чатов из localStorage при первом рендере
   useEffect(() => {
@@ -45,6 +47,27 @@ const AssistantPage = () => {
       createNewChat("Новый чат");
     }
   }, []);
+
+  // Обработчик кликов вне выпадающего списка
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (chatListRef.current && !chatListRef.current.contains(event.target)) {
+        setShowChatList(false);
+      }
+    }
+
+    // Добавляем слушатель событий только когда список открыт
+    if (showChatList) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+
+    // Очистка слушателя при размонтировании
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showChatList]);
 
   // Сохранение чатов в localStorage при их изменении
   useEffect(() => {
@@ -221,7 +244,12 @@ const AssistantPage = () => {
       const updatedMessages = [
         ...messages,
         { text: "Запросить рецепт на основе моих заказов за последние 3 дня", sender: "user" },
-        { text: response.data.response, sender: "assistant", isRecipe: true },
+        { 
+          text: response.data.response, 
+          sender: "assistant", 
+          isRecipe: true,
+          products: response.data.products || [] // Store products data
+        },
       ];
       
       setMessages(updatedMessages);
@@ -240,7 +268,7 @@ const AssistantPage = () => {
   };
 
   // Функция для форматирования текста рецепта
-  const formatRecipeText = (text) => {
+  const formatRecipeText = (text, products) => {
     if (!text) return "";
 
     // Разделяем на параграфы
@@ -248,6 +276,20 @@ const AssistantPage = () => {
     
     return (
       <div className="recipe-container">
+        {/* Отображаем список продуктов если есть */}
+        {products && products.length > 0 && (
+          <div className="mb-4 bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
+            <h4 className="font-medium text-md mb-2">Доступные продукты:</h4>
+            <ul className="list-disc pl-5">
+              {products.map((product, idx) => (
+                <li key={idx} className="mb-1">
+                  <span className="font-medium">{product.name}</span>: {product.quantity} шт.
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
         {paragraphs.map((paragraph, index) => {
           // Определяем, является ли параграф заголовком
           const isTitle = index === 0 || paragraph.length < 50 && !paragraph.includes(":");
@@ -260,6 +302,11 @@ const AssistantPage = () => {
           const isSteps = paragraph.includes("Приготовление") || 
                           paragraph.includes("Шаги") || 
                           paragraph.includes("Инструкция");
+
+          // Пропускаем параграф "Доступные продукты", так как мы уже отображаем их выше
+          if (paragraph.trim().startsWith("Доступные продукты:")) {
+            return null;
+          }
 
           if (isTitle) {
             return (
@@ -320,7 +367,7 @@ const AssistantPage = () => {
         {/* Панель инструментов с выбором чата */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
-            <div className="relative">
+            <div className="relative" ref={chatListRef}>
               <button 
                 onClick={() => setShowChatList(!showChatList)}
                 className="flex items-center px-4 py-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 mr-2"
@@ -367,7 +414,10 @@ const AssistantPage = () => {
                       </div>
                     ))}
                     <div 
-                      onClick={() => setShowNewChatDialog(true)}
+                      onClick={() => {
+                        setShowNewChatDialog(true);
+                        setShowChatList(false);
+                      }}
                       className="flex items-center px-4 py-2 text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -379,13 +429,6 @@ const AssistantPage = () => {
                 </div>
               )}
             </div>
-            
-            <button
-              onClick={() => setShowNewChatDialog(true)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              + Новый чат
-            </button>
           </div>
           
           {messages.length > 0 && (
@@ -420,7 +463,7 @@ const AssistantPage = () => {
               >
                 {msg.sender === "user" || !msg.isRecipe 
                   ? msg.text 
-                  : formatRecipeText(msg.text)}
+                  : formatRecipeText(msg.text, msg.products)}
               </div>
             ))
           )}

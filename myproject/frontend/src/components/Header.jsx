@@ -181,7 +181,7 @@ function Header() {
             )}
             <Link
               to="/assistant"
-              className="text-gray-700 dark:text-gray-300 hover:text-blue-500"
+              className="text-white hover:text-gray-300"
             >
               ИИ Помощник
             </Link>
