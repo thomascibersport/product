@@ -238,6 +238,7 @@ const OrdersPage = () => {
         draggable: false,
       }
     );
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const indexOfLastOrder = currentPage * ordersPerPage;

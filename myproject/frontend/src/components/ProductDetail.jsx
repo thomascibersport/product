@@ -108,7 +108,7 @@ const ProductDetail = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/cart/items/`,
+        `http://localhost:8000/api/cart/`,
         {
           product: displayProduct.id,
           quantity: quantity,

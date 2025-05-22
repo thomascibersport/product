@@ -265,7 +265,7 @@ const ChatPage = () => {
       try {
         const token = getToken();
         const response = await axios.get(
-          `http://localhost:8000/api/users/${id}/`,
+          `http://localhost:8000/api/profile/${id}/`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }

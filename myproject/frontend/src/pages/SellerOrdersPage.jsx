@@ -68,7 +68,7 @@ const SellerOrdersPage = () => {
       }
       try {
         const response = await axios.get(
-          "http://localhost:8000/api/orders/seller/",
+          "http://localhost:8000/api/orders/seller_orders/",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -183,6 +183,7 @@ const SellerOrdersPage = () => {
       setShowCancelForm(null);
       setCancelReason("");
       toast.success("Заказ успешно отменен");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       toast.error("Ошибка при отмене заказа");
       console.error("Ошибка:", error);
@@ -219,6 +220,7 @@ const SellerOrdersPage = () => {
         draggable: false,
       }
     );
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Форматирование даты
@@ -480,7 +482,9 @@ const SellerOrdersPage = () => {
                         Подтвердить заказ
                       </button>
                       <button
-                        onClick={() => setShowCancelForm(order.id)}
+                        onClick={() => {
+                          setShowCancelForm(order.id);
+                        }}
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Отклонить

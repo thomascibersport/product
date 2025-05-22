@@ -22,7 +22,7 @@ const MessagesPage = () => {
       
       // Use the new endpoint that returns all chat details in one request
       const response = await axios.get(
-        "http://localhost:8000/api/messages/chats-with-details/", 
+        "http://localhost:8000/api/messages/chats/details/", 
         {
           headers: { Authorization: `Bearer ${token}` },
         }

@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
 import InputMask from "react-input-mask";
+import { ToastContainer } from "react-toastify";
 
 const cardTypeImages = {
   visa: "https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png",
@@ -45,6 +46,7 @@ const CartPage = () => {
   const [paymentType, setPaymentType] = useState("card");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const [showCardModal, setShowCardModal] = useState(false);
@@ -72,7 +74,7 @@ const CartPage = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/cart/items/",
+        "http://localhost:8000/api/cart/",
         { product: productId, quantity },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -99,7 +101,7 @@ const CartPage = () => {
       }
       try {
         const response = await axios.get(
-          "http://localhost:8000/api/cart/items/",
+          "http://localhost:8000/api/cart/",
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setCartItems(response.data);
@@ -127,9 +129,19 @@ const CartPage = () => {
 
   const updateQuantity = async (itemId, newQuantity) => {
     const token = Cookies.get("token");
+    const item = cartItems.find((item) => item.id === itemId);
+    
+    if (!item) return;
+    
+    // Check if the new quantity exceeds available stock
+    if (newQuantity > item.product.quantity) {
+      setErrorMessage(`Недостаточно товара '${item.product.name}'. Доступно: ${item.product.quantity}`);
+      return;
+    }
+    
     try {
       await axios.put(
-        `http://localhost:8000/api/cart/items/${itemId}/`,
+        `http://localhost:8000/api/cart/${itemId}/`,
         { quantity: newQuantity },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -138,15 +150,18 @@ const CartPage = () => {
           item.id === itemId ? { ...item, quantity: newQuantity } : item
         )
       );
+      // Clear error message if successful
+      setErrorMessage("");
     } catch (error) {
       console.error("Ошибка обновления количества:", error);
+      setErrorMessage("Произошла ошибка при обновлении количества товара");
     }
   };
 
   const removeItem = async (itemId) => {
     const token = Cookies.get("token");
     try {
-      await axios.delete(`http://localhost:8000/api/cart/items/${itemId}/`, {
+      await axios.delete(`http://localhost:8000/api/cart/${itemId}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCartItems((items) => items.filter((item) => item.id !== itemId));
@@ -196,7 +211,17 @@ const CartPage = () => {
       navigate("/login");
       return;
     }
+    
+    setSubmitting(true);
     try {
+      for (const item of cartItems) {
+        if (item.quantity > item.product.quantity) {
+          setErrorMessage(`Недостаточно товара '${item.product.name}'. Доступно: ${item.product.quantity}`);
+          setSubmitting(false);
+          return;
+        }
+      }
+      
       const orderData = {
         delivery_type: deliveryType,
         payment_method: paymentType,
@@ -213,9 +238,15 @@ const CartPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      await axios.delete("http://localhost:8000/api/cart/clear/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Delete each cart item individually instead of using clear endpoint
+      const deletePromises = cartItems.map(item => 
+        axios.delete(`http://localhost:8000/api/cart/${item.id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      );
+      
+      await Promise.all(deletePromises);
+      
       setCartItems([]);
       setShowCardModal(false);
       navigate("/orders");
@@ -232,6 +263,8 @@ const CartPage = () => {
       }
       setErrorMessage(errorMessage);
       console.error("Детали ошибки:", error.response?.data);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -413,7 +446,7 @@ const CartPage = () => {
                   Минимальная сумма заказа 2000 рублей. Добавьте товаров ещё на {(2000 - calculateTotal()).toFixed(2)} рублей.
                 </p>
               )}
-              {errorMessage && (
+              {errorMessage && !showCardModal && (
                 <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 rounded-lg text-red-700 dark:text-red-200">
                   <p className="text-sm">{errorMessage}</p>
                 </div>
@@ -589,8 +622,8 @@ const CartPage = () => {
         )}
 
         {showCardModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all">
               <div className="p-6 space-y-6">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -665,10 +698,16 @@ const CartPage = () => {
               </div>
 
               <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700">
+                {errorMessage && (
+                  <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 rounded-lg text-red-700 dark:text-red-200">
+                    <p className="text-sm">{errorMessage}</p>
+                  </div>
+                )}
                 <div className="flex gap-4">
                   <button
                     onClick={handleCancelCard}
                     className="flex-1 px-6 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                    disabled={submitting}
                   >
                     Отмена
                   </button>
@@ -678,9 +717,10 @@ const CartPage = () => {
                         sendOrder();
                       }
                     }}
-                    className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg"
+                    className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={submitting}
                   >
-                    Оплатить
+                    {submitting ? "Обработка..." : "Оплатить"}
                   </button>
                 </div>
               </div>
@@ -688,6 +728,7 @@ const CartPage = () => {
           </div>
         )}
       </div>
+      <ToastContainer position="bottom-center" />
     </div>
   );
 };

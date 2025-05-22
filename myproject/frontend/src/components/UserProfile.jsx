@@ -62,11 +62,11 @@ const UserProfile = () => {
     const fetchUserProfile = async () => {
       try {
         const userResponse = await axios.get(
-          `http://localhost:8000/api/users/${id}/`
+          `http://localhost:8000/api/profile/${id}/`
         );
         setUser(userResponse.data);
         const productsResponse = await axios.get(
-          `http://localhost:8000/api/users/${id}/products/`
+          `http://localhost:8000/api/user/${id}/products/`
         );
         setProducts(productsResponse.data);
         if (token) {
@@ -128,7 +128,7 @@ const UserProfile = () => {
       const newReview = response.data;
       setReviews([...reviews, newReview]);
       const updatedUserResponse = await axios.get(
-        `http://localhost:8000/api/users/${id}/`
+        `http://localhost:8000/api/profile/${id}/`
       );
       setUser(updatedUserResponse.data);
       setReviewContent("");
@@ -157,7 +157,7 @@ const UserProfile = () => {
       const updatedReviews = reviews.filter((review) => review.id !== reviewId);
       setReviews(updatedReviews);
       const updatedUserResponse = await axios.get(
-        `http://localhost:8000/api/users/${id}/`
+        `http://localhost:8000/api/profile/${id}/`
       );
       setUser(updatedUserResponse.data);
       toast.success("Отзыв успешно удален!");

@@ -23,41 +23,25 @@ router.register(r'admin/orders', AdminOrderViewSet)
 router.register(r'admin/messages', AdminMessageViewSet)
 router.register(r'admin/reviews', AdminReviewViewSet)
 
+router.register('cart', CartItemViewSet, basename='cart')
+router.register('orders', OrderViewSet, basename='orders')
 
 urlpatterns = [
-
     path('', include(router.urls)),
-    path('products/create/', ProductCreate.as_view(), name='product-create'),
     path('products/', ProductList.as_view(), name='product-list'),
+    path('products/create/', ProductCreate.as_view(), name='product-create'),
     path('products/<int:pk>/', ProductDetail.as_view(), name='product-detail'),
     path('categories/', CategoryList.as_view(), name='category-list'),
-    path('cart/items/', CartItemViewSet.as_view({
-        'get': 'list',
-        'post': 'create'
-    }), name='cart-items'),
-    path('cart/items/<int:pk>/', CartItemViewSet.as_view({
-        'get': 'retrieve',
-        'put': 'update',
-        'delete': 'destroy'
-    }), name='cart-item-detail'),
-    path('orders/', OrderViewSet.as_view({
-        'get': 'list',
-        'post': 'create'
-    }), name='orders'),
-    path('cart/clear/', CartItemViewSet.as_view({'delete': 'clear'}), name='clear-cart'),
     path('my-products/', MyProductsList.as_view(), name='my-products'),
-    path('orders/<int:pk>/cancel/', OrderViewSet.as_view({'post': 'cancel'}), name='order-cancel'),
-    path('orders/seller/', OrderViewSet.as_view({'get': 'seller_orders'}), name='seller-orders'),
-    path('orders/<int:pk>/confirm/', OrderViewSet.as_view({'post': 'confirm'}), name='order-confirm'),
-    path('api/products/<int:pk>/', ProductDetail.as_view(), name='product-detail'),
-    path('users/<int:id>/', UserProfileView.as_view(), name='user-profile'),  
-    path('users/<int:user_id>/products/', UserProductsList.as_view(), name='user-products'),
-    path('users/update/', UpdateProfileView.as_view(), name='update-profile'),
-    path("messages/send/", send_message, name="send_message"),
-    path("messages/has-messages/", has_messages, name="has_messages"),
-    path("messages/unread-count/", unread_messages_count, name="unread_messages_count"),
-    path("messages/chats/", ChatListView.as_view(), name="chat_list"),
-    path("messages/chats-with-details/", ChatListWithDetailsView.as_view(), name="chat_list_with_details"),
+    path('user/<int:user_id>/products/', UserProductsList.as_view(), name='user-products'),
+    path('profile/<int:id>/', UserProfileView.as_view(), name='profile-detail'),
+    path('profile/update/', UpdateProfileView.as_view(), name='profile-update'),
+    path('cart/clear/', CartItemViewSet.as_view({'delete': 'clear'}), name='cart-clear'),
+    path('messages/send/', send_message, name='send-message'),
+    path('messages/has-messages/', has_messages, name='has-messages'),
+    path('messages/unread-count/', unread_messages_count, name='unread-count'),
+    path('messages/chats/', ChatListView.as_view(), name='chat-list'),
+    path('messages/chats/details/', ChatListWithDetailsView.as_view(), name='chat-list-with-details'),
     path("messages/chat/<int:pk>/", ChatMessagesView.as_view(), name="chat_messages"),
     path("messages/chat/<int:sender_id>/<int:recipient_id>/", ChatMessagesBetweenUsersView.as_view(), name="chat_messages_between_users"),
     path('users/me/', CurrentUserView.as_view(), name='current-user'),
@@ -70,4 +54,5 @@ urlpatterns = [
     path('seller-statistics/', SellerStatisticsView.as_view(), name='seller-statistics'),
     path('assistant/', GPTAssistantView.as_view(), name='gpt-assistant'),
     path('assistant/recipe', GPTAssistantView.as_view(), name='gpt-assistant-recipe'),
+    path('assistant/dish-recipe', GPTAssistantView.as_view(), name='gpt-assistant-dish-recipe'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

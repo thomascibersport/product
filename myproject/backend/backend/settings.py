@@ -1,19 +1,12 @@
 from pathlib import Path
 from datetime import timedelta
 import os
-from dotenv import load_dotenv
-from os import getenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-SERVICE_ACCOUNT_ID = os.getenv("KEY_ID")
-PRIVATE_KEY = os.getenv("SECRET_KEY")
-API_KEY = os.getenv("API_KEY")
-FOLDER_ID = os.getenv("FOLDER_ID")
-print("SERVICE_ACCOUNT_ID:", SERVICE_ACCOUNT_ID)
-print("PRIVATE_KEY:", PRIVATE_KEY)
-SECRET_KEY = 'django-insecure-a@(68!yp71v3b5cv489v4k(z)=pkoaunngu^kcgc3u1^sa77hy'
+# Get environment variables directly instead of using dotenv
+# Environment variables should be set in the system or .env file 
+
 
 SECRET_KEY = 'django-insecure-a@(68!yp71v3b5cv489v4k(z)=pkoaunngu^kcgc3u1^sa77hy'
 
