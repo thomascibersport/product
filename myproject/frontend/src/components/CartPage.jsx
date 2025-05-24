@@ -4,7 +4,8 @@ import Cookies from "js-cookie";
 import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
 import InputMask from "react-input-mask";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const cardTypeImages = {
   visa: "https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png",
@@ -238,7 +239,6 @@ const CartPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Delete each cart item individually instead of using clear endpoint
       const deletePromises = cartItems.map(item => 
         axios.delete(`http://localhost:8000/api/cart/${item.id}/`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -249,7 +249,13 @@ const CartPage = () => {
       
       setCartItems([]);
       setShowCardModal(false);
-      navigate("/orders");
+      
+      toast.success("Заказ успешно оформлен");
+
+      setTimeout(() => {
+        navigate("/orders");
+      }, 3000);
+
     } catch (error) {
       let errorMessage = "Ошибка оформления заказа";
       if (error.response) {
@@ -271,6 +277,16 @@ const CartPage = () => {
   const handleCreateOrder = () => {
     if (cartItems.length === 0) {
       setErrorMessage("Корзина пуста!");
+      return;
+    }
+
+    // Check for out-of-stock items before proceeding
+    const outOfStockItems = cartItems.filter(item => item.quantity > item.product.quantity);
+    if (outOfStockItems.length > 0) {
+      const itemsList = outOfStockItems.map(item => 
+        `${item.product.name} (доступно: ${item.product.quantity})`
+      ).join(", ");
+      setErrorMessage(`Некоторые товары закончились: ${itemsList}`);
       return;
     }
 
@@ -370,6 +386,19 @@ const CartPage = () => {
                       <span className="text-sm text-red-500">нет доставки</span>
                     )}
                   </h2>
+
+                  {/* Add out-of-stock warning */}
+                  {item.product.quantity === 0 && (
+                    <div className="text-red-500 font-medium">
+                      Товар закончился
+                    </div>
+                  )}
+                  {item.product.quantity > 0 && item.product.quantity < item.quantity && (
+                    <div className="text-orange-500 font-medium">
+                      Доступно только: {item.product.quantity} шт.
+                    </div>
+                  )}
+
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Продавец: {truncateText(item.product.farmer_name)}
                   </p>
@@ -728,7 +757,7 @@ const CartPage = () => {
           </div>
         )}
       </div>
-      <ToastContainer position="bottom-center" />
+      <ToastContainer />
     </div>
   );
 };

@@ -25,6 +25,7 @@ import SellerStatisticsPage from "../src/pages/SellerStatisticsPage";
 import SellerDashboard from "../src/pages/SellerStatisticsPage";
 import AdminDashboard from "../src/pages/AdminDashboard";
 import PrivateRoute from "./PrivateRoute";
+import SellerRoute from "./SellerRoute";
 import AssistantPage from '../src/pages/AssistantPage';
 
 // Loading component with background matching the site theme
@@ -73,9 +74,9 @@ const AppContent = () => {
           <Route
             path="/add-product"
             element={
-              <PrivateRoute>
+              <SellerRoute>
                 <AddProductForm />
-              </PrivateRoute>
+              </SellerRoute>
             }
           />
           <Route path="/product/:id" element={<ProductDetail />} />
@@ -98,17 +99,17 @@ const AppContent = () => {
           <Route
             path="/my-products"
             element={
-              <PrivateRoute>
+              <SellerRoute>
                 <MyProductsPage />
-              </PrivateRoute>
+              </SellerRoute>
             }
           />
           <Route
             path="/seller-orders"
             element={
-              <PrivateRoute>
+              <SellerRoute>
                 <SellerOrdersPage />
-              </PrivateRoute>
+              </SellerRoute>
             }
           />
           <Route path="/users/:id" element={<UserProfile />} />
@@ -131,17 +132,17 @@ const AppContent = () => {
           <Route
             path="/seller-statistics"
             element={
-              <PrivateRoute>
+              <SellerRoute>
                 <SellerStatisticsPage />
-              </PrivateRoute>
+              </SellerRoute>
             }
           />
           <Route
             path="/seller-dashboard"
             element={
-              <PrivateRoute>
+              <SellerRoute>
                 <SellerDashboard />
-              </PrivateRoute>
+              </SellerRoute>
             }
           />
           <Route

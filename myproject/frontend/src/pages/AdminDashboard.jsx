@@ -33,6 +33,8 @@ import {
   Divider,
   Card,
   CardContent,
+  TextareaAutosize,
+  Grid,
 } from "@mui/material";
 import { TableContainer } from "@mui/material";
 import { toast, ToastContainer } from "react-toastify";
@@ -45,6 +47,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CloseIcon from "@mui/icons-material/Close";
 import SendIcon from "@mui/icons-material/Send";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { alpha } from "@mui/material/styles";
 
 const API_URL = "http://127.0.0.1:8000/api/";
@@ -66,6 +70,13 @@ function AdminDashboard() {
   const [openChatDialog, setOpenChatDialog] = useState(false);
   const [chatData, setChatData] = useState({ messages: [], sender: null, recipient: null });
   const { token } = useContext(AuthContext);
+  
+  // Seller applications state
+  const [sellerApplications, setSellerApplications] = useState([]);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [openApplicationDialog, setOpenApplicationDialog] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState("pending");
 
   const statusTranslations = {
     processing: "В обработке",
@@ -85,6 +96,13 @@ function AdminDashboard() {
     card: "Картой",
     cash: "Наличные",
   };
+  
+  const sellerStatusTranslations = {
+    not_applied: "Не подавал заявку",
+    pending: "На рассмотрении",
+    approved: "Подтверждён",
+    rejected: "Отклонён"
+  };
 
   const fetchData = async (endpoint, setter) => {
     try {
@@ -96,6 +114,37 @@ function AdminDashboard() {
       console.error(`Ошибка при загрузке ${endpoint}:`, error);
     }
   };
+  
+  const fetchSellerApplications = async () => {
+    try {
+      const response = await axios.get(`${API_URL}authentication/admin/seller-applications/?status=${applicationStatusFilter}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("Seller applications response:", response.data);
+      
+      // If the data is empty or not in expected format, log an error
+      if (!response.data || !Array.isArray(response.data)) {
+        console.error("Invalid seller applications data format:", response.data);
+        toast.error("Неверный формат данных заявок продавцов");
+        return;
+      }
+      
+      // Map the data to ensure all required fields are present
+      const formattedApplications = response.data.map(app => ({
+        ...app,
+        first_name: app.first_name || '',
+        last_name: app.last_name || '',
+        email: app.email || 'Нет данных',
+        seller_status: app.seller_status || 'not_applied',
+        seller_application_date: app.seller_application_date || null
+      }));
+      
+      setSellerApplications(formattedApplications);
+    } catch (error) {
+      console.error("Ошибка при загрузке заявок продавцов:", error);
+      toast.error("Не удалось загрузить заявки продавцов");
+    }
+  };
 
   useEffect(() => {
     fetchData("users", setUsers);
@@ -105,7 +154,8 @@ function AdminDashboard() {
     fetchData("orders", setOrders);
     fetchData("messages", setMessages);
     fetchData("reviews", setReviews);
-  }, [token]);
+    fetchSellerApplications();
+  }, [token, applicationStatusFilter]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -116,6 +166,38 @@ function AdminDashboard() {
     setOpenEditDialog(true);
   };
 
+  const viewSellerApplication = async (userId) => {
+    try {
+      const response = await axios.get(`${API_URL}authentication/admin/seller-applications/${userId}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      console.log("Seller application details:", response.data);
+      
+      // Ensure we have all required fields with default values if missing
+      const applicationData = {
+        ...response.data,
+        username: response.data.username || 'Нет данных',
+        first_name: response.data.first_name || '',
+        last_name: response.data.last_name || '',
+        middle_name: response.data.middle_name || '',
+        email: response.data.email || 'Нет данных',
+        phone: response.data.phone || 'Не указан',
+        seller_description: response.data.seller_description || '',
+        seller_status: response.data.seller_status || 'not_applied',
+        seller_application_date: response.data.seller_application_date || null,
+        seller_reject_reason: response.data.seller_reject_reason || '',
+        images: response.data.images || []
+      };
+      
+      setSelectedApplication(applicationData);
+      setOpenApplicationDialog(true);
+    } catch (error) {
+      console.error("Ошибка при загрузке заявки:", error);
+      toast.error("Не удалось загрузить данные заявки");
+    }
+  };
+  
   const confirmDelete = (id, type) => {
     toast(
       <div>
@@ -165,6 +247,79 @@ function AdminDashboard() {
     } catch (error) {
       console.error(`Ошибка при удалении ${endpoint}:`, error);
       toast.error("Ошибка при удалении элемента");
+    }
+  };
+  
+  const handleApplicationAction = async (userId, action) => {
+    try {
+      const data = { action };
+      
+      if (action === 'reject' && !rejectReason.trim()) {
+        toast.error("Укажите причину отклонения заявки");
+        return;
+      }
+      
+      if (action === 'reject') {
+        data.reason = rejectReason;
+      }
+      
+      console.log(`Processing application action: ${action} for user ${userId}`, data);
+      
+      const response = await axios.put(`${API_URL}authentication/admin/seller-applications/${userId}/`, 
+        data,
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+      
+      // Update the selected application with the new data
+      if (selectedApplication && selectedApplication.id === userId) {
+        setSelectedApplication({
+          ...selectedApplication,
+          ...response.data,
+          seller_status: response.data.seller_status,
+          seller_reject_reason: response.data.seller_reject_reason,
+          is_seller: response.data.is_seller
+        });
+      }
+      
+      // Reset rejection reason
+      setRejectReason("");
+      
+      // Refresh the applications list
+      await fetchSellerApplications();
+      
+      // Send notification message to the user about their application status
+      try {
+        // Get the user's username for the notification message
+        const username = selectedApplication?.username || 
+                         sellerApplications.find(app => app.id === userId)?.username ||
+                         "пользователя";
+        
+        // Create a message to notify the user about their application status
+        const notificationMessage = {
+          recipient_id: userId,
+          content: action === 'approve' 
+            ? `Ваша заявка на статус продавца была одобрена! Теперь вы можете размещать товары на платформе.`
+            : `Ваша заявка на статус продавца была отклонена. Причина: ${rejectReason}`
+        };
+        
+        // Send the notification message
+        await axios.post(`${API_URL}messages/send/`, notificationMessage, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log(`Notification sent to user ${userId} about ${action} status`);
+      } catch (notifyError) {
+        console.error("Ошибка при отправке уведомления пользователю:", notifyError);
+        // Don't show an error toast for this - the main action was successful
+      }
+      
+      toast.success(action === 'approve' 
+        ? "Заявка успешно подтверждена" 
+        : "Заявка отклонена"
+      );
+    } catch (error) {
+      console.error("Ошибка при обработке заявки:", error.response?.data || error);
+      toast.error("Ошибка при обработке заявки: " + (error.response?.data?.error || error.message));
     }
   };
 
@@ -403,6 +558,7 @@ function AdminDashboard() {
             <Tab label="Заказы" className="text-gray-900 dark:text-white" />
             <Tab label="Сообщения" className="text-gray-900 dark:text-white" />
             <Tab label="Отзывы" className="text-gray-900 dark:text-white" />
+            <Tab label="Заявки продавцов" className="text-gray-900 dark:text-white" />
           </Tabs>
           
           <div className="flex justify-between items-center mb-4">
@@ -414,7 +570,9 @@ function AdminDashboard() {
               {tabValue === 4 && "Управление заказами"}
               {tabValue === 5 && "Управление сообщениями"}
               {tabValue === 6 && "Управление отзывами"}
+              {tabValue === 7 && "Управление заявками продавцов"}
             </Typography>
+            {tabValue < 7 && (
             <Tooltip title={`Добавить ${
               tabValue === 0 ? "пользователя" : 
               tabValue === 1 ? "продукт" : 
@@ -441,10 +599,137 @@ function AdminDashboard() {
                 <AddIcon />
               </Fab>
             </Tooltip>
+            )}
+            {tabValue === 7 && (
+              <FormControl variant="outlined" className="min-w-[200px]">
+                <InputLabel id="application-status-label">Статус</InputLabel>
+                <Select
+                  labelId="application-status-label"
+                  value={applicationStatusFilter}
+                  onChange={(e) => setApplicationStatusFilter(e.target.value)}
+                  label="Статус"
+                >
+                  <MenuItem value="all">Все заявки</MenuItem>
+                  <MenuItem value="pending">На рассмотрении</MenuItem>
+                  <MenuItem value="approved">Подтверждённые</MenuItem>
+                  <MenuItem value="rejected">Отклонённые</MenuItem>
+                </Select>
+              </FormControl>
+            )}
           </div>
           
           <Paper elevation={0} className="overflow-hidden rounded-lg bg-transparent shadow-none" style={{ backgroundColor: 'transparent' }}>
             <Box className="overflow-x-auto bg-transparent">
+              {/* Seller Applications Tab */}
+              {tabValue === 7 && (
+                <TableContainer className="rounded-lg bg-transparent" style={{ width: '100%' }}>
+                  <Table style={{ tableLayout: 'fixed', width: '100%' }}>
+                    <TableHead className="bg-transparent">
+                      <TableRow className="bg-transparent">
+                        {[
+                          "ID", "Пользователь", "Email", "Телефон", "Статус", "Дата подачи", "Действия"
+                        ].map((header, index) => (
+                          <TableCell 
+                            key={index} 
+                            className="text-black dark:text-white font-semibold bg-transparent" 
+                            style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {header}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody className="bg-transparent">
+                      {sellerApplications.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center" className="text-gray-500 dark:text-gray-400 py-8">
+                            {applicationStatusFilter === 'pending' 
+                              ? "Нет заявок на рассмотрении" 
+                              : applicationStatusFilter === 'approved'
+                              ? "Нет подтверждённых заявок"
+                              : applicationStatusFilter === 'rejected'
+                              ? "Нет отклонённых заявок"
+                              : "Нет заявок"
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        sellerApplications.map((application) => (
+                          <TableRow key={application.id} className="hover:bg-blue-50/30 dark:hover:bg-gray-700/30 transition-colors bg-transparent">
+                            <TableCell className="text-black dark:text-white bg-transparent">{application.id}</TableCell>
+                            <TableCell className="text-black dark:text-white bg-transparent">
+                              {application.first_name || application.last_name 
+                                ? `${application.first_name || ''} ${application.last_name || ''}`
+                                : application.username || 'Нет данных'}
+                            </TableCell>
+                            <TableCell className="text-black dark:text-white bg-transparent">{application.email || 'Нет данных'}</TableCell>
+                            <TableCell className="text-black dark:text-white bg-transparent">{application.phone || 'Не указан'}</TableCell>
+                            <TableCell className="text-black dark:text-white bg-transparent">
+                              <Chip 
+                                label={sellerStatusTranslations[application.seller_status] || 'Неизвестно'} 
+                                color={
+                                  application.seller_status === 'approved' ? 'success' :
+                                  application.seller_status === 'pending' ? 'warning' : 
+                                  application.seller_status === 'rejected' ? 'error' : 'default'
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell className="text-black dark:text-white bg-transparent">
+                              {application.seller_application_date 
+                                ? new Date(application.seller_application_date).toLocaleString() 
+                                : 'Н/Д'}
+                            </TableCell>
+                            <TableCell>
+                              <Tooltip title="Просмотреть заявку">
+                                <IconButton
+                                  onClick={() => viewSellerApplication(application.id)}
+                                  className="mr-1 text-blue-500 hover:text-blue-700"
+                                  size="small"
+                                >
+                                  <VisibilityIcon />
+                                </IconButton>
+                              </Tooltip>
+                              
+                              {application.seller_status === 'pending' && (
+                                <>
+                                  <Tooltip title="Подтвердить">
+                                    <IconButton
+                                      onClick={() => {
+                                        setSelectedApplication(application);
+                                        handleApplicationAction(application.id, 'approve');
+                                      }}
+                                      className="mr-1 text-green-500 hover:text-green-700"
+                                      size="small"
+                                    >
+                                      <CheckCircleIcon />
+                                    </IconButton>
+                                  </Tooltip>
+                                  
+                                  <Tooltip title="Отклонить">
+                                    <IconButton
+                                      onClick={() => {
+                                        setSelectedApplication(application);
+                                        setOpenApplicationDialog(true);
+                                      }}
+                                      className="text-red-500 hover:text-red-700"
+                                      size="small"
+                                    >
+                                      <CancelIcon />
+                                    </IconButton>
+                                  </Tooltip>
+                                </>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+              
+              {/* Other tabs */}
               {tabValue === 0 && (
                 <TableContainer className="rounded-lg bg-transparent" style={{ width: '100%' }}>
                   <Table style={{ tableLayout: 'fixed', width: '100%' }}>
@@ -1932,6 +2217,239 @@ function AdminDashboard() {
               className="bg-blue-500 text-white hover:bg-blue-600"
             >
               Добавить
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={openApplicationDialog}
+          onClose={() => setOpenApplicationDialog(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{ 
+            className: "bg-white dark:bg-gray-800 rounded-lg",
+            style: { minHeight: '60vh' }
+          }}
+        >
+          <DialogTitle className="bg-blue-100 dark:bg-gray-700 flex justify-between items-center">
+            <Typography variant="h6" className="text-gray-800 dark:text-white">
+              Заявка на статус продавца
+            </Typography>
+            <IconButton onClick={() => setOpenApplicationDialog(false)}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          
+          {selectedApplication && (
+            <DialogContent className="p-6">
+              <Grid container spacing={4}>
+                <Grid item xs={12} md={6}>
+                  <Card className="mb-6">
+                    <CardContent>
+                      <Typography variant="h6" className="mb-4 text-gray-800 dark:text-white font-bold">
+                        Информация о пользователе
+                      </Typography>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400">
+                            Имя пользователя:
+                          </Typography>
+                          <Typography variant="body1" className="text-gray-800 dark:text-white">
+                            {selectedApplication.username || 'Не указано'}
+                          </Typography>
+                        </div>
+                        
+                        <div>
+                          <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400">
+                            ФИО:
+                          </Typography>
+                          <Typography variant="body1" className="text-gray-800 dark:text-white">
+                            {`${selectedApplication.first_name || ''} ${selectedApplication.last_name || ''} ${selectedApplication.middle_name || ''}`}
+                          </Typography>
+                        </div>
+                        
+                        <div>
+                          <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400">
+                            Email:
+                          </Typography>
+                          <Typography variant="body1" className="text-gray-800 dark:text-white">
+                            {selectedApplication.email || 'Не указано'}
+                          </Typography>
+                        </div>
+                        
+                        <div>
+                          <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400">
+                            Телефон:
+                          </Typography>
+                          <Typography variant="body1" className="text-gray-800 dark:text-white">
+                            {selectedApplication.phone || 'Не указан'}
+                          </Typography>
+                        </div>
+                        
+                        <div>
+                          <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400">
+                            Дата подачи заявки:
+                          </Typography>
+                          <Typography variant="body1" className="text-gray-800 dark:text-white">
+                            {selectedApplication.seller_application_date 
+                              ? new Date(selectedApplication.seller_application_date).toLocaleString() 
+                              : 'Не указано'}
+                          </Typography>
+                        </div>
+
+                        <div>
+                          <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400">
+                            Текущий статус:
+                          </Typography>
+                          <Chip 
+                            label={sellerStatusTranslations[selectedApplication.seller_status] || 'Неизвестно'} 
+                            color={
+                              selectedApplication.seller_status === 'approved' ? 'success' :
+                              selectedApplication.seller_status === 'pending' ? 'warning' : 
+                              selectedApplication.seller_status === 'rejected' ? 'error' : 'default'
+                            }
+                            size="small"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" className="mb-4 text-gray-800 dark:text-white font-bold">
+                        Описание деятельности
+                      </Typography>
+                      <Typography variant="body1" className="text-gray-800 dark:text-white whitespace-pre-wrap">
+                        {selectedApplication.seller_description || 'Описание не предоставлено'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" className="mb-4 text-gray-800 dark:text-white font-bold">
+                        Подтверждающие изображения
+                      </Typography>
+                      
+                      {selectedApplication.images && selectedApplication.images.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {selectedApplication.images.map((image) => (
+                            <div key={image.id} className="relative">
+                              <img 
+                                src={image.image_url || image.image} 
+                                alt="Подтверждающее изображение"
+                                className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <Typography variant="body1" className="text-gray-600 dark:text-gray-400">
+                          Изображения не загружены
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {selectedApplication.seller_status === 'rejected' && (
+                    <Card className="mt-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <CardContent>
+                        <Typography variant="h6" className="text-red-800 dark:text-red-400 font-bold">
+                          Заявка отклонена
+                        </Typography>
+                        <Typography variant="subtitle2" className="text-gray-600 dark:text-gray-400 mt-2">
+                          Причина отклонения:
+                        </Typography>
+                        <Typography variant="body1" className="text-gray-800 dark:text-white mt-1 whitespace-pre-wrap">
+                          {selectedApplication.seller_reject_reason || 'Причина не указана'}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {selectedApplication.seller_status === 'approved' && (
+                    <Card className="mt-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <CardContent>
+                        <Typography variant="h6" className="text-green-800 dark:text-green-400 font-bold">
+                          Заявка подтверждена
+                        </Typography>
+                        <Typography variant="body1" className="text-gray-800 dark:text-white mt-1">
+                          Пользователь имеет статус продавца и может размещать товары на платформе.
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  )}
+                </Grid>
+              </Grid>
+              
+              {/* Actions section - only show for pending applications or when admin wants to change status */}
+              <div className="mt-8 space-y-4">
+                {/* Status change controls */}
+                {(selectedApplication.seller_status === 'pending' || applicationStatusFilter !== 'pending') && (
+                  <Card className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+                    <CardContent>
+                      <Typography variant="h6" className="mb-4 text-gray-800 dark:text-white font-bold">
+                        Управление статусом заявки
+                      </Typography>
+                      
+                      <div className="flex flex-wrap gap-4 mb-4">
+                        <Button
+                          onClick={() => handleApplicationAction(selectedApplication.id, 'approve')}
+                          variant="contained"
+                          className={`bg-green-500 hover:bg-green-600 text-white ${selectedApplication.seller_status === 'approved' ? 'opacity-50' : ''}`}
+                          startIcon={<CheckCircleIcon />}
+                          disabled={selectedApplication.seller_status === 'approved'}
+                        >
+                          {selectedApplication.seller_status === 'approved' ? 'Уже подтверждена' : 'Подтвердить заявку'}
+                        </Button>
+                      </div>
+                      
+                      {/* Rejection reason input - only show when not already rejected or when admin wants to update rejection reason */}
+                      {(selectedApplication.seller_status !== 'rejected' || !selectedApplication.seller_reject_reason) && (
+                        <>
+                          <TextField
+                            label="Причина отклонения"
+                            variant="outlined"
+                            fullWidth
+                            multiline
+                            rows={3}
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            className="mt-4"
+                            placeholder="Укажите причину отклонения заявки"
+                            InputProps={{ className: "text-gray-800 dark:text-white" }}
+                            InputLabelProps={{ className: "text-gray-600 dark:text-gray-300" }}
+                          />
+                          
+                          <Button
+                            variant="contained"
+                            className="bg-red-500 hover:bg-red-600 text-white mt-4"
+                            disabled={!rejectReason.trim()}
+                            onClick={() => handleApplicationAction(selectedApplication.id, 'reject')}
+                            startIcon={<CancelIcon />}
+                          >
+                            Отклонить заявку
+                          </Button>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </DialogContent>
+          )}
+          
+          <DialogActions className="bg-gray-100 dark:bg-gray-700 p-4">
+            <Button
+              onClick={() => setOpenApplicationDialog(false)}
+              className="text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              Закрыть
             </Button>
           </DialogActions>
         </Dialog>

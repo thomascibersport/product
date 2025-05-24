@@ -358,13 +358,64 @@ const UserProfile = () => {
               
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                 <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">О пользователе</h3>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {user.successful_deals > 10 
-                    ? `Опытный продавец с ${user.successful_deals} успешными сделками` 
-                    : user.successful_deals > 0 
-                      ? `Начинающий продавец с ${user.successful_deals} успешными сделками`
-                      : "Новый пользователь на платформе"}
-                </p>
+                {user.bio ? (
+                  <p className="text-gray-800 dark:text-gray-200">{user.bio}</p>
+                ) : (
+                  <p className="text-gray-800 dark:text-gray-200">
+                    {user.successful_deals > 10 
+                      ? `Опытный продавец с ${user.successful_deals} успешными сделками` 
+                      : user.successful_deals > 0 
+                        ? `Начинающий продавец с ${user.successful_deals} успешными сделками`
+                        : "Новый пользователь на платформе"}
+                  </p>
+                )}
+                
+                {/* Display user media files as attachments to bio */}
+                {user.media && user.media.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Медиафайлы пользователя:
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {user.media.map((media) => (
+                        <div
+                          key={media.id}
+                          className="bg-white dark:bg-gray-600 rounded-lg overflow-hidden shadow-sm"
+                        >
+                          <div className="aspect-square">
+                            {media.media_type === "image" ? (
+                              <img
+                                src={media.file_url}
+                                alt={media.title || "Изображение пользователя"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <video
+                                src={media.file_url}
+                                controls
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          {(media.title || media.description) && (
+                            <div className="p-2">
+                              {media.title && (
+                                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
+                                  {media.title}
+                                </p>
+                              )}
+                              {media.description && (
+                                <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                                  {media.description}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -446,7 +497,7 @@ const UserProfile = () => {
                   </div>
                 )}
               </>
-            ) : (
+            ) : activeTab === "reviews" ? (
               <>
                 {reviews.length > 0 ? (
                   <div className="space-y-6">
@@ -501,7 +552,7 @@ const UserProfile = () => {
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,7 @@ import {
 import { Button } from "./ui/button";
 import { getToken } from "../utils/auth";
 import { AuthContext } from "../AuthContext";
+import useSellerStatus from "../hooks/useSellerStatus";
 import axios from "axios";
 
 // Throttle function to limit API calls
@@ -26,6 +27,7 @@ const throttle = (func, delay) => {
 
 function Header() {
   const { user, token, logout, setUser } = useContext(AuthContext);
+  const { refreshSellerStatus } = useSellerStatus();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
     return savedTheme ? savedTheme === "dark" : false;
@@ -34,8 +36,16 @@ function Header() {
   const [hasMessages, setHasMessages] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation(); // Get current location
   const intervalRef = useRef(null);
   const isLoadingRef = useRef(false);
+
+  // Log when user or location changes
+  useEffect(() => {
+    if (user) {
+      console.log("User data in Header:", user.username, "is_seller:", user.is_seller);
+    }
+  }, [user, location.pathname]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
@@ -120,6 +130,13 @@ function Header() {
     };
   }, [isAuthenticated, user, throttledFetch]);
 
+  // Force refresh user data on each navigation
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      refreshSellerStatus();
+    }
+  }, [location.pathname, isAuthenticated, token, refreshSellerStatus]);
+
   const handleLogout = () => {
     // Clear interval on logout
     if (intervalRef.current) {
@@ -138,6 +155,39 @@ function Header() {
   const handleProfileSettings = () => {
     navigate("/profile/edit");
   };
+
+  // Check seller status when component is focused
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshSellerStatus();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshSellerStatus]);
+
+  // Also check seller status periodically
+  useEffect(() => {
+    // Only set up this interval if the user is authenticated but not a seller
+    if (!isAuthenticated || !user || user.is_staff || user.is_seller) {
+      return;
+    }
+    
+    // Check every 30 seconds if seller status has changed
+    const statusCheckInterval = setInterval(() => {
+      refreshSellerStatus();
+    }, 30000);
+    
+    return () => {
+      clearInterval(statusCheckInterval);
+    };
+  }, [isAuthenticated, user, refreshSellerStatus]);
+
+  // Determine if user is a seller directly from user object
+  const showSellerLinks = user && user.is_seller === true;
 
   return (
     <header className="bg-gray-800 text-white py-4 px-6 shadow-md">
@@ -160,15 +210,19 @@ function Header() {
             <Link to="/cart" className="hover:text-gray-300">
               Корзина
             </Link>
-            <Link to="/my-products" className="hover:text-gray-300">
-              Мои объявления
-            </Link>
-            <Link to="/seller-orders" className="hover:text-gray-300">
-              Заказы на мои товары
-            </Link>
-            <Link to="/seller-statistics" className="hover:text-gray-300">
-              Статистика
-            </Link>
+            {showSellerLinks && (
+              <>
+                <Link to="/my-products" className="hover:text-gray-300">
+                  Мои объявления
+                </Link>
+                <Link to="/seller-orders" className="hover:text-gray-300">
+                  Заказы на мои товары
+                </Link>
+                <Link to="/seller-statistics" className="hover:text-gray-300">
+                  Статистика
+                </Link>
+              </>
+            )}
             {hasMessages && (
               <Link to="/messages" className="hover:text-gray-300 relative">
                 Сообщения

@@ -106,7 +106,7 @@ class ProductList(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        queryset = Product.objects.all()
+        queryset = Product.objects.filter(quantity__gt=0)  # Only show products with quantity > 0
         # Если пользователь авторизован - исключаем его товары
         if self.request.user.is_authenticated:
             queryset = queryset.exclude(farmer=self.request.user)
@@ -1214,6 +1214,201 @@ class GPTAssistantView(APIView):
                 {"error": error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    def _clean_ingredient_name(self, name):
+        name = name.lower()
+        # Более полный список стоп-слов и единиц измерения
+        stop_words = [
+            "свежий", "молодой", "старый", "красный", "зеленый", "желтый", "белый", "черный",
+            "большой", "маленький", "средний", "один", "два", "три", "несколько", "немного",
+            "очень", "слегка", "по вкусу", "для жарки", "для варки", "для салата",
+            "очищенный", "нарезанный", "измельченный", "целый",
+            "сыр", # Avoid "сыр" being a stop word if it's part of "сливочный сыр"
+        ]
+        units = [
+            "грамм", "граммов", "гр.", "гр", "г.", "г", "миллилитров", "мл.", "мл",
+            "килограмм", "кг.", "кг", "литр", "л.", "л", "штук", "шт.", "шт",
+            "ст.л.", "ст.л", "ст. ложка", "ст ложка", "столовая ложка", "столовых ложек",
+            "ч.л.", "ч.л", "ч. ложка", "ч ложка", "чайная ложка", "чайных ложек",
+            "стакан", "стакана", "стаканов", "пачка", "пучок", "щепотка", "упаковка",
+            "зубчик", "долька", "головка"
+        ]
+
+        # Удаление знаков препинания и цифр вначале
+        name = ''.join([c if c.isalpha() or c.isspace() else ' ' for c in name])
+        name = ' '.join(name.split()) # Убрать лишние пробелы
+
+        # Удаление единиц измерения (более аккуратно)
+        for unit in units:
+            name = name.replace(f" {unit} ", " ") # с пробелами по бокам
+            if name.endswith(f" {unit}"): name = name[:-len(f" {unit}")].strip()
+            if name.startswith(f"{unit} "): name = name[len(f"{unit} "):].strip()
+        
+        # Удаление стоп-слов
+        words = name.split()
+        # Filter out stop words, unless it's a single-word ingredient that IS a stop word (e.g. "лук")
+        if len(words) > 1:
+            cleaned_words = [word for word in words if word not in stop_words or word == "лук"] # "лук" is an exception
+        else:
+            cleaned_words = words
+        name = " ".join(cleaned_words).strip()
+        
+        # Нормализация некоторых слов (простой вариант)
+        normalization_map = {
+            "картошка": "картофель",
+            "помидоры": "томат", "помидор": "томат",
+            "огурцы": "огурец",
+            "морковка": "морковь",
+            "лучок": "лук",
+            "куриная грудка": "куриное филе", "куриные грудки": "куриное филе",
+            "яйца": "яйцо",
+            "маслины": "оливки", # often used interchangeably in some contexts
+            "сметана": "сметана", # keep it as is
+            "сыр": "сыр" # keep as is, to be handled by category matching
+        }
+        for k, v in normalization_map.items():
+            if k in name: # more robust replacement
+                 # Replace whole word only
+                name = (' ' + name + ' ').replace(' ' + k + ' ', ' ' + v + ' ').strip()
+
+        # Попытка привести к единственному числу (очень упрощенно)
+        if name.endswith("ы") or name.endswith("и"): name = name[:-1]
+        if name.endswith("а") or name.endswith("я") and len(name) > 3 : name = name[:-1]
+        
+        return name.strip()
+
+    def _find_products_for_ingredient(self, ingredient_name, original_line):
+        """
+        Ищет продукты в базе данных для данного ингредиента с использованием различных стратегий.
+        Возвращает список словарей продуктов с информацией о совпадении.
+        """
+        cleaned_name = self._clean_ingredient_name(ingredient_name)
+        if not cleaned_name or len(cleaned_name) < 2: # Слишком короткое имя для поиска
+            return []
+
+        matched_products_info = []
+        found_product_ids = set()
+        
+        # Этапы поиска с убывающим приоритетом и строгостью
+        search_strategies = [
+            {"type": "exact", "query_field": "name__iexact", "term": cleaned_name, "confidence": 100},
+            {"type": "name_contains_cleaned", "query_field": "name__icontains", "term": cleaned_name, "confidence": 90},
+            # Более мягкий поиск по оригинальной строке, если очищенное имя не дало результатов
+            {"type": "original_contains", "query_field": "name__icontains", "term": ingredient_name, "confidence": 85, "condition": lambda: not matched_products_info},
+        ]
+        
+        # Поиск по словам, если имя состоит из нескольких слов
+        cleaned_words = cleaned_name.split()
+        if len(cleaned_words) > 1:
+            for word in cleaned_words:
+                if len(word) > 2: # Искать только по значимым словам
+                    search_strategies.append({
+                        "type": f"word_contains_{word}", 
+                        "query_field": "name__icontains", 
+                        "term": word, 
+                        "confidence": 70 + (len(word) * 2) # больше очков за длинные слова
+                    })
+
+        for strategy in search_strategies:
+            if "condition" in strategy and not strategy["condition"]():
+                continue
+            
+            products_qs = Product.objects.filter(
+                Q(**{strategy["query_field"]: strategy["term"]}),
+                quantity__gt=0 # Только товары в наличии
+            ).exclude(id__in=found_product_ids)
+
+            for product in products_qs.distinct()[:5]: # Ограничиваем количество на каждую стратегию
+                if product.id not in found_product_ids:
+                    match_info = {
+                        "id": product.id,
+                        "name": product.name,
+                        "price": float(product.price),
+                        "quantity": product.quantity,
+                        "image": product.image.url if product.image else None,
+                        "ingredient_original": original_line, # оригинальная строка из рецепта
+                        "ingredient_cleaned": cleaned_name,  # очищенное имя для отладки
+                        "confidence": strategy["confidence"],
+                        "match_type": strategy["type"]
+                    }
+                    
+                    # Повышаем уверенность, если категория продукта соответствует ожидаемой
+                    for cat_name, keywords in self.ingredient_categories.items():
+                        if any(kw in cleaned_name for kw in keywords) or any(kw in ingredient_name for kw in keywords):
+                            db_category = Category.objects.filter(name__iexact=cat_name).first()
+                            if db_category and product.category == db_category:
+                                match_info["confidence"] = min(100, strategy["confidence"] + 10)
+                                match_info["match_type"] += "_cat_boost"
+                                break # Первого совпадения по категории достаточно
+                    
+                    matched_products_info.append(match_info)
+                    found_product_ids.add(product.id)
+            
+            if len(matched_products_info) >= 5: # Не более 5 продуктов на ингредиент
+                break
+        
+        # Дополнительный поиск по категории, если ничего не найдено или мало
+        if not matched_products_info or len(matched_products_info) < 2:
+            for cat_map_name, keywords in self.ingredient_categories.items():
+                if any(kw in cleaned_name for kw in keywords) or any(kw in ingredient_name for kw in keywords):
+                    db_categories = Category.objects.filter(name__icontains=cat_map_name)
+                    if db_categories.exists():
+                        cat_products = Product.objects.filter(
+                            category__in=db_categories,
+                            quantity__gt=0
+                        ).exclude(id__in=found_product_ids)
+                        
+                        # Добавляем логику для приоритезации продуктов, чье имя тоже содержит ключевые слова
+                        priority_products = []
+                        other_products = []
+                        for p in cat_products:
+                            if any(kw in p.name.lower() for kw in keywords):
+                                priority_products.append(p)
+                            else:
+                                other_products.append(p)
+                        
+                        # Сначала приоритетные, потом остальные
+                        sorted_cat_products = priority_products + other_products
+
+                        for product in sorted_cat_products[:3]: # Не более 3-х из категории
+                            if product.id not in found_product_ids:
+                                matched_products_info.append({
+                                    "id": product.id,
+                                    "name": product.name,
+                                    "price": float(product.price),
+                                    "quantity": product.quantity,
+                                    "image": product.image.url if product.image else None,
+                                    "ingredient_original": original_line,
+                                    "ingredient_cleaned": cleaned_name,
+                                    "confidence": 65, # Базовая уверенность для категорийного матча
+                                    "match_type": f"category_match_{cat_map_name}"
+                                })
+                                found_product_ids.add(product.id)
+                                if len(matched_products_info) >=5: break
+                        if len(matched_products_info) >=5: break
+        
+        # Сортируем по уверенности и возвращаем
+        matched_products_info.sort(key=lambda x: x["confidence"], reverse=True)
+        return matched_products_info[:5] # Не более 5 лучших совпадений на ингредиент
+
+    # Определяем категории ингредиентов (можно вынести в настройки или отдельный файл)
+    ingredient_categories = {
+        "Мясо": ["говядина", "свинина", "баранина", "телятина", "курица", "индейка", "курин", "филе", "фарш", "бекон", "колбаса", "сосиски", "ветчина"],
+        "Рыба": ["рыба", "лосось", "треска", "тунец", "селедка", "форель", "семга", "карп", "скумбрия", "креветки", "мидии", "кальмар"],
+        "Овощи": ["картофель", "морковь", "лук", "чеснок", "перец", "томат", "помидор", "огурец", "капуста", "баклажан", "кабачок", "тыква", "редис", "свекла", "брокколи", "цветная капуста", "кукуруза", "горошек"],
+        "Фрукты": ["яблоко", "груша", "банан", "апельсин", "лимон", "мандарин", "киви", "авокадо", "виноград", "персик", "слива", "манго", "ананас"],
+        "Ягоды": ["клубника", "малина", "смородина", "черника", "ежевика", "клюква", "брусника", "земляника"],
+        "Молочные продукты": ["молоко", "сыр", "творог", "сметана", "йогурт", "кефир", "масло сливочное", "сливки", "ряженка", "простокваша"],
+        "Сыр": ["сыр", "пармезан", "чеддер", "моцарелла", "гауда", "фета", "бри", "рокфор", "дорблю", "брынза"], # Отдельно для сыров, так как "сыр" часто в названии
+        "Мука и Крупы": ["мука", "рис", "гречка", "овсянка", "перловка", "булгур", "киноа", "манка", "пшено", "макароны", "спагетти", "вермишель"],
+        "Специи и Приправы": ["соль", "перец", "паприка", "куркума", "корица", "базилик", "орегано", "тимьян", "розмарин", "имбирь", "гвоздика", "мускатный орех", "кардамон", "чили", "лавровый лист", "ваниль", "сахар", "мед", "горчица", "уксус", "соевый соус"],
+        "Зелень": ["укроп", "петрушка", "кинза", "базилик", "мята", "зеленый лук", "шпинат", "руккола", "салат", "щавель"],
+        "Масла и Жиры": ["масло растительное", "оливковое масло", "подсолнечное масло", "сливочное масло", "маргарин", "жир"],
+        "Орехи и Семена": ["орех", "миндаль", "фундук", "грецкий", "кешью", "фисташки", "арахис", "семечки", "кунжут", "лен"],
+        "Напитки": ["чай", "кофе", "сок", "вода", "компот"],
+        "Консервы": ["консервы", "тушенка", "горошек консервированный", "кукуруза консервированная", "фасоль консервированная", "оливки", "маслины"],
+        "Хлебобулочные изделия": ["хлеб", "булка", "лаваш", "батон", "круассан"],
+    }
+
     def get_dish_recipe(self, request):
         dish_name = request.data.get("dish_name")
         if not dish_name:
@@ -1222,29 +1417,28 @@ class GPTAssistantView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Improved prompt for more structured recipe format
-        prompt = f"""Вы - шеф-повар, который описывает рецепты. Напишите подробный рецепт для блюда '{dish_name}'.
+        prompt = f"""Вы - шеф-повар, который описывает рецепты. Напишите подробный рецепт для блюда \'{dish_name}\'.
         
 Ваш ответ должен обязательно содержать:
 1. Краткое описание блюда
-2. Раздел 'Ингредиенты:' с четким перечислением на новых строках в формате 'Название ингредиента - количество'
+2. Раздел 'Ингредиенты:' с четким перечислением на новых строках в формате 'Название ингредиента - количество и единица измерения (например, Картофель - 500 г или Яйца - 3 шт.)'
 3. Раздел 'Приготовление:' с пронумерованными шагами
         
-Старайтесь указывать базовые ингредиенты (мука, яйца, молоко, соль) и основные продукты (говядина, картофель, морковь и т.д.) без сложных составных частей."""
+Старайтесь указывать базовые ингредиенты (мука, яйца, молоко, соль) и основные продукты (говядина, картофель, морковь и т.д.) без сложных составных частей. 
+Не используйте сокращения типа "ст.л.", "ч.л.", пишите "столовая ложка", "чайная ложка".
+Указывайте количество основных продуктов в граммах, килограммах, штуках или миллилитрах где это применимо."""
         
-        # Construct the request body for Yandex GPT
         model_uri = f"gpt://{settings.FOLDER_ID}/yandexgpt-lite"
         request_body = {
             "modelUri": model_uri,
             "completionOptions": {
                 "stream": False,
-                "temperature": 0.6,
-                "maxTokens": 800,  # Increased token count for detailed recipe
+                "temperature": 0.5, # немного уменьшим температуру для большей предсказуемости формата
+                "maxTokens": 1000, # увеличим для более полных рецептов
             },
             "messages": [{"role": "user", "text": prompt}],
         }
         
-        # Make request to Yandex GPT API
         gpt_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
         headers = {
             "Authorization": f"Api-Key {settings.API_KEY}",
@@ -1257,227 +1451,89 @@ class GPTAssistantView(APIView):
             gpt_response = response.json()
             recipe_text = gpt_response["result"]["alternatives"][0]["message"]["text"]
             
-            # Extract ingredients from the recipe with improved parsing
-            ingredients = []
-            ingredient_details = []
+            parsed_ingredients_details = []
             
-            # Common variations of the ingredients section heading
             ingredients_headers = ["Ингредиенты:", "Ингредиенты", "Состав:", "Состав", "Необходимые продукты:"]
             cooking_headers = ["Приготовление:", "Приготовление", "Способ приготовления:", "Инструкция:", "Шаги:"]
             
-            # Find the ingredients section
-            ingredients_section_start = None
-            ingredients_section_end = None
+            ingredients_section_text = ""
+            temp_text = recipe_text
             
-            for header in ingredients_headers:
-                if header in recipe_text:
-                    ingredients_section_start = recipe_text.find(header) + len(header)
+            # Более надежное извлечение секции ингредиентов
+            for header_token in ingredients_headers:
+                header_start_idx = temp_text.lower().find(header_token.lower())
+                if header_start_idx != -1:
+                    text_after_header = temp_text[header_start_idx + len(header_token):]
+                    
+                    end_section_idx = len(text_after_header) # по умолчанию до конца
+                    for cook_header_token in cooking_headers:
+                        cook_header_idx = text_after_header.lower().find(cook_header_token.lower())
+                        if cook_header_idx != -1:
+                            end_section_idx = min(end_section_idx, cook_header_idx)
+                    
+                    ingredients_section_text = text_after_header[:end_section_idx].strip()
                     break
             
-            if ingredients_section_start:
-                # Find the beginning of the cooking section to mark the end of ingredients
-                for header in cooking_headers:
-                    if header in recipe_text[ingredients_section_start:]:
-                        ingredients_section_end = recipe_text.find(header, ingredients_section_start)
-                        break
-                
-                if ingredients_section_end:
-                    ingredients_section = recipe_text[ingredients_section_start:ingredients_section_end].strip()
-                else:
-                    # If cooking section not found, take all text until the end or a double newline
-                    double_newline = recipe_text.find("\n\n", ingredients_section_start)
-                    if double_newline != -1:
-                        ingredients_section = recipe_text[ingredients_section_start:double_newline].strip()
-                    else:
-                        ingredients_section = recipe_text[ingredients_section_start:].strip()
-                
-                # Process each line in the ingredients section
-                for line in ingredients_section.split("\n"):
+            if ingredients_section_text:
+                for line in ingredients_section_text.split("\n"):
                     line = line.strip()
-                    if not line:
-                        continue
+                    if not line: continue
                     
-                    # Skip bullets and numbering
+                    # Убираем маркеры списка, если есть
                     if line.startswith("•") or line.startswith("-") or line.startswith("*"):
                         line = line[1:].strip()
-                    elif line[0].isdigit() and line[1:3] in [". ", ") ", ". "]:
-                        line = line[3:].strip()
+                    elif line and line[0].isdigit() and (line[1:3] in [". ", ") "] or (len(line) > 1 and line[1] == '.')):
+                         line = line.split('.', 1)[-1].split(')', 1)[-1].strip()
+
+
+                    # Разделяем название и количество (если есть)
+                    # Попробуем несколько разделителей: " - ", " – ", " — ", ":"
+                    ingredient_name_part = line
+                    quantity_part = ""
                     
-                    # Remember the original line for display
-                    original_line = line
-                    
-                    # Extract the main ingredient name, handling various separators
-                    separators = [" - ", " – ", " — ", ": ", " (", ",", " для "]
-                    main_part = line
-                    
+                    separators = [" - ", " – ", " — ", ":"] # двоеточие последним, т.к. может быть в названии
                     for sep in separators:
                         if sep in line:
-                            main_part = line.split(sep)[0]
-                            break
+                            parts = line.split(sep, 1)
+                            ingredient_name_part = parts[0].strip()
+                            if len(parts) > 1:
+                                quantity_part = parts[1].strip()
+                            break 
                     
-                    # Clean up the ingredient name by removing quantities and units
-                    units = [
-                        "грамм", " г.", " г ", "мл", "кг", "л", "шт", "штук", "штуки",
-                        "ст.л", "ст. л", "ч.л", "ч. л", "столов", "чайн", "ложк", "ложек", 
-                        "стакан", "пачка", "пучок", "щепотка", "по вкусу", "упаковка", "литр"
-                    ]
-                    
-                    # Replace units with space to avoid word concatenation
-                    for unit in units:
-                        main_part = main_part.replace(unit, " ")
-                    
-                    # Remove digits
-                    clean_ingredient = ''.join([c if not c.isdigit() else ' ' for c in main_part])
-                    
-                    # Clean up spaces and other characters
-                    clean_ingredient = clean_ingredient.replace('/', ' ').replace('\\', ' ')
-                    clean_ingredient = ' '.join(clean_ingredient.split())
-                    clean_ingredient = clean_ingredient.strip('- \t./')
-                    
-                    # Only add if we have a valid ingredient name
-                    if clean_ingredient and len(clean_ingredient) > 2:
-                        ingredients.append(clean_ingredient)
-                        ingredient_details.append({
-                            "original": original_line,
-                            "name": clean_ingredient
-                        })
-            
-            # Detect common ingredient synonyms and categories
-            ingredient_categories = {
-                "мясо": ["говядина", "свинина", "баранина", "телятина", "курица", "индейка", "курин", "куриное филе", "фарш"],
-                "рыба": ["лосось", "треска", "тунец", "селедка", "форель", "семга", "карп"],
-                "овощи": ["картофель", "картошка", "морковь", "лук", "чеснок", "перец", "томат", "помидор", "огурец", "капуста", "баклажан", "кабачок"],
-                "фрукты": ["яблоко", "груша", "банан", "апельсин", "лимон", "киви", "авокадо"],
-                "молочные": ["молоко", "сыр", "творог", "сметана", "йогурт", "кефир", "масло сливочное", "сливки"],
-                "мука": ["пшеничная", "ржаная", "кукурузная", "овсяная"],
-                "крупы": ["рис", "гречка", "овсянка", "перловка", "булгур", "киноа"],
-                "специи": ["соль", "перец", "паприка", "куркума", "корица", "базилик", "орегано", "тимьян"],
-                "зелень": ["укроп", "петрушка", "кинза", "базилик", "мята", "зеленый лук"]
-            }
-            
-            # Search for products in database that match ingredients
-            available_products = []
-            available_products_ids = set()  # To avoid duplicates
-            
-            # First loop: Find exact matches by name and category
-            for ingredient in ingredients:
-                # First try exact match by name
-                products = Product.objects.filter(name__iexact=ingredient)
-                
-                # Create a confidence score for each product
-                product_matches = []
-                
-                if products.exists():
-                    for product in products.distinct()[:3]:
-                        if product.id not in available_products_ids:
-                            product_matches.append({
-                                "product": product,
-                                "confidence": 100,  # Exact match has 100% confidence
-                                "match_type": "exact"
-                            })
-                            available_products_ids.add(product.id)
-                
-                # Try category match if we have less than 3 products
-                if len(product_matches) < 3:
-                    # Find the relevant category for this ingredient
-                    potential_categories = []
-                    for category_name, items in ingredient_categories.items():
-                        for item in items:
-                            if item in ingredient.lower():
-                                potential_categories.append(category_name)
-                                break
-                    
-                    if potential_categories:
-                        # Find products in the matching categories
-                        for category_name in potential_categories:
-                            if len(product_matches) >= 3:
-                                break
-                                
-                            # Find category objects with similar names
-                            categories = Category.objects.filter(name__icontains=category_name)
-                            if categories.exists():
-                                category_products = Product.objects.filter(category__in=categories)
-                                
-                                # Order by name similarity to the ingredient
-                                for product in category_products.distinct()[:3]:
-                                    if product.id not in available_products_ids and len(product_matches) < 3:
-                                        # Calculate word similarity for confidence
-                                        ingredient_words = set(ingredient.lower().split())
-                                        product_words = set(product.name.lower().split())
-                                        common_words = ingredient_words.intersection(product_words)
-                                        
-                                        if common_words:
-                                            confidence = min(90, (len(common_words) / len(ingredient_words)) * 100)
-                                            product_matches.append({
-                                                "product": product,
-                                                "confidence": confidence,
-                                                "match_type": "category"
-                                            })
-                                            available_products_ids.add(product.id)
-                
-                # If we still have less than 3 products, try partial matching
-                if len(product_matches) < 3:
-                    # Try contains match (partial match)
-                    products = Product.objects.filter(name__icontains=ingredient)
-                    for product in products.distinct():
-                        if product.id not in available_products_ids and len(product_matches) < 3:
-                            # Calculate what percentage of the product name is the ingredient
-                            confidence = min(80, (len(ingredient) / len(product.name)) * 100)
-                            product_matches.append({
-                                "product": product,
-                                "confidence": confidence,
-                                "match_type": "partial"
-                            })
-                            available_products_ids.add(product.id)
-                
-                # If still no matches, try word-by-word matching for longer words
-                if len(product_matches) < 3:
-                    for word in ingredient.split():
-                        if len(word) > 3:  # Only search for words with more than 3 characters
-                            word_products = Product.objects.filter(name__icontains=word)
-                            for product in word_products.distinct():
-                                if product.id not in available_products_ids and len(product_matches) < 3:
-                                    confidence = min(70, (len(word) / len(product.name)) * 100)
-                                    product_matches.append({
-                                        "product": product,
-                                        "confidence": confidence,
-                                        "match_type": "word"
-                                    })
-                                    available_products_ids.add(product.id)
-                
-                # Sort by confidence and add top matches
-                product_matches.sort(key=lambda x: x["confidence"], reverse=True)
-                
-                # Add the best matches to the response
-                for match in product_matches[:3]:  # At most 3 matches per ingredient
-                    product = match["product"]
-                    available_products.append({
-                        "id": product.id,
-                        "name": product.name,
-                        "price": float(product.price),
-                        "quantity": product.quantity,
-                        "image": product.image.url if product.image else None,
-                        "ingredient": ingredient,
-                        "confidence": match["confidence"],
-                        "match_type": match["match_type"]
+                    # Если после очистки имя ингредиента слишком короткое, пропускаем
+                    cleaned_for_check = self._clean_ingredient_name(ingredient_name_part)
+                    if not cleaned_for_check or len(cleaned_for_check) < 2:
+                        continue
+
+                    parsed_ingredients_details.append({
+                        "original_line": line, # Вся строка как есть
+                        "name_from_recipe": ingredient_name_part, # Часть до разделителя
+                        "quantity_from_recipe": quantity_part # Часть после разделителя
                     })
+
+            all_found_products = []
+            aggregated_product_ids = set()
+
+            for ing_detail in parsed_ingredients_details:
+                # Используем name_from_recipe для поиска
+                products_for_this_ingredient = self._find_products_for_ingredient(
+                    ing_detail["name_from_recipe"], 
+                    ing_detail["original_line"]
+                )
+                for p_info in products_for_this_ingredient:
+                    if p_info["id"] not in aggregated_product_ids:
+                        all_found_products.append(p_info)
+                        aggregated_product_ids.add(p_info["id"])
             
-            # Sort products by confidence score
-            available_products.sort(key=lambda x: x["confidence"], reverse=True)
+            # Сортируем все найденные продукты по уверенности
+            all_found_products.sort(key=lambda x: x["confidence"], reverse=True)
             
-            # Return only unique products to avoid redundancy
-            unique_products = []
-            seen_ids = set()
-            
-            for product in available_products:
-                if product["id"] not in seen_ids:
-                    unique_products.append(product)
-                    seen_ids.add(product["id"])
-            
+            # Отправляем клиенту только детали ингредиентов, которые были распарсены
+            # и топ N наиболее релевантных уникальных продуктов
             return Response({
                 "response": recipe_text,
-                "products": unique_products[:10],  # Limit to top 10 most relevant products
-                "ingredients": ingredient_details
+                "products": all_found_products[:15],  # Увеличим лимит до 15, т.к. фильтруем по уникальности
+                "ingredients": parsed_ingredients_details # Отправляем распарсенные строки
             })
         except requests.exceptions.RequestException as e:
             error_message = f"Ошибка при запросе к GPT: {str(e)}"

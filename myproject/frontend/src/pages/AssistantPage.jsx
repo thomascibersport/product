@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import { Link } from "react-router-dom";
 
 const AssistantPage = () => {
+  const [currentUserId, setCurrentUserId] = useState(null);
   // Состояние для всех чатов
   const [chats, setChats] = useState([]);
   // Активный чат ID
@@ -24,6 +25,42 @@ const AssistantPage = () => {
 
   const [chatMode, setChatMode] = useState("chat"); // 'chat', 'dishRecipe', 'myOrdersRecipe'
 
+  // ADDED: useEffect to fetch user ID
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = Cookies.get("token");
+      if (token) {
+        try {
+          // Assuming an endpoint like /api/authentication/user/
+          // that returns { id: '...' }
+          const response = await axios.get("http://localhost:8000/api/authentication/user/", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.data && response.data.id) {
+            setCurrentUserId(response.data.id.toString()); // Ensure it's a string for key consistency
+          } else {
+            console.error("ID пользователя не найден в ответе:", response.data);
+            setError("Не удалось получить ID пользователя. Функционал чатов ограничен.");
+            setCurrentUserId(null); 
+          }
+        } catch (err) {
+          console.error("Ошибка при загрузке данных пользователя:", err);
+          setError("Ошибка при загрузке данных пользователя. Чаты могут быть недоступны или работать некорректно.");
+          setCurrentUserId(null);
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            Cookies.remove("token");
+            // Consider redirecting to login page here if appropriate
+          }
+        }
+      } else {
+        // No token - user is not logged in.
+        // Chats will be disabled as currentUserId will remain null.
+        setCurrentUserId(null); 
+      }
+    };
+    fetchUser();
+  }, []); // Fetch user on component mount
+
   // Функция для прокрутки чата вниз
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -36,23 +73,35 @@ const AssistantPage = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Загрузка чатов из localStorage при первом рендере
+  // MODIFIED: Загрузка чатов из localStorage при первом рендере (теперь зависит от currentUserId)
   useEffect(() => {
-    const savedChats = localStorage.getItem("assistantChats");
+    if (!currentUserId) { // Don't load chats until user ID is available
+      setChats([]); // Clear chats if user logs out or ID is not available
+      setMessages([]);
+      setActiveChat(null);
+      return;
+    }
+
+    const savedChatsKey = `assistantChats_${currentUserId}`;
+    const lastActiveChatKey = `lastActiveChat_${currentUserId}`;
+    const savedChats = localStorage.getItem(savedChatsKey);
+
     if (savedChats) {
       try {
         const parsedChats = JSON.parse(savedChats);
         setChats(parsedChats);
         
-        // Восстановление последнего активного чата или выбор первого доступного
-        const lastActiveChat = localStorage.getItem("lastActiveChat");
-        if (lastActiveChat && parsedChats.some(chat => chat.id === lastActiveChat)) {
-          setActiveChat(lastActiveChat);
-          const chat = parsedChats.find(c => c.id === lastActiveChat);
+        const lastActiveChatId = localStorage.getItem(lastActiveChatKey);
+        if (lastActiveChatId && parsedChats.some(chat => chat.id === lastActiveChatId)) {
+          setActiveChat(lastActiveChatId);
+          const chat = parsedChats.find(c => c.id === lastActiveChatId);
           setMessages(chat.messages || []);
         } else if (parsedChats.length > 0) {
           setActiveChat(parsedChats[0].id);
           setMessages(parsedChats[0].messages || []);
+        } else {
+          // Parsed chats is empty array, create a new one
+          createNewChat("Новый чат");
         }
       } catch (error) {
         console.error("Ошибка при загрузке сохраненных чатов:", error);
@@ -63,7 +112,7 @@ const AssistantPage = () => {
       // Если нет сохраненных чатов, создаем новый
       createNewChat("Новый чат");
     }
-  }, []);
+  }, [currentUserId]); // Re-run when currentUserId is fetched/changed. createNewChat is stable.
 
   // Обработчик кликов вне выпадающего списка
   useEffect(() => {
@@ -86,17 +135,27 @@ const AssistantPage = () => {
     };
   }, [showChatList]);
 
-  // Сохранение чатов в localStorage при их изменении
+  // MODIFIED: Сохранение чатов в localStorage при их изменении (теперь зависит от currentUserId)
   useEffect(() => {
+    if (!currentUserId) return; // Don't save if no user ID
+
+    const savedChatsKey = `assistantChats_${currentUserId}`;
+    const lastActiveChatKey = `lastActiveChat_${currentUserId}`;
+
     if (chats.length > 0) {
-      localStorage.setItem("assistantChats", JSON.stringify(chats));
+      localStorage.setItem(savedChatsKey, JSON.stringify(chats));
+    } else {
+      // If chats array becomes empty (e.g., all chats deleted), remove from localStorage or save empty array
+      localStorage.setItem(savedChatsKey, JSON.stringify([]));
     }
     
-    // Сохраняем ID активного чата
     if (activeChat) {
-      localStorage.setItem("lastActiveChat", activeChat);
+      localStorage.setItem(lastActiveChatKey, activeChat);
+    } else {
+      // If no active chat, remove the key
+      localStorage.removeItem(lastActiveChatKey);
     }
-  }, [chats, activeChat]);
+  }, [chats, activeChat, currentUserId]); // Include currentUserId in dependencies
 
   // Обновление сообщений активного чата при их изменении
   useEffect(() => {
@@ -314,33 +373,56 @@ const AssistantPage = () => {
               Доступные продукты для этого рецепта
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {products.map((product, idx) => (
-                <Link 
-                  to={`/product/${product.id}`} 
-                  key={idx} 
-                  className="flex flex-col bg-white dark:bg-slate-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 hover:scale-102"
-                >
-                  <div className="p-3 flex items-start h-full">
-                    <div className="w-16 h-16 flex-shrink-0 mr-3 bg-gray-100 dark:bg-slate-600 rounded-md overflow-hidden">
-                      {product.image ? (
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
+              {products.map((product, idx) => {
+                if (product.id) { // Product from "dishRecipe" - has ID, image, price
+                  return (
+                    <Link
+                      to={`/product/${product.id}`}
+                      key={idx}
+                      className="flex flex-col bg-white dark:bg-slate-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 hover:scale-102"
+                    >
+                      <div className="p-3 flex items-start h-full">
+                        <div className="w-16 h-16 flex-shrink-0 mr-3 bg-gray-100 dark:bg-slate-600 rounded-md overflow-hidden">
+                          {product.image ? (
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h5 className="font-bold text-gray-800 dark:text-slate-200 mb-1 text-sm">{product.name}</h5>
-                      <div className="text-xs text-gray-600 dark:text-slate-400">
-                        <span className="font-medium text-blue-600 dark:text-blue-500">{product.price} ₽</span>
+                        <div className="flex-1">
+                          <h5 className="font-bold text-gray-800 dark:text-slate-200 mb-1 text-sm">{product.name}</h5>
+                          {product.price && (
+                            <div className="text-xs text-gray-600 dark:text-slate-400">
+                              <span className="font-medium text-blue-600 dark:text-blue-500">{product.price} ₽</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                } else { // Product from "myOrdersRecipe" - only has name and quantity
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col bg-white dark:bg-slate-700 rounded-lg overflow-hidden shadow-md p-3"
+                    >
+                      {/* No image section for these products as image URL is not provided by the backend */}
+                      <div className="flex-1">
+                        <h5 className="font-bold text-gray-800 dark:text-slate-200 mb-1 text-sm">{product.name}</h5>
+                        {typeof product.quantity === 'number' && (
+                          <div className="text-xs text-gray-600 dark:text-slate-400">
+                            <span>Количество: {product.quantity}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  );
+                }
+              })}
             </div>
           </div>
         )}
@@ -401,17 +483,25 @@ const AssistantPage = () => {
                       
                       if (ingredients && ingredients.length > 0) {
                         // Пытаемся найти ингредиент в строке
-                        for (const ingredient of ingredients) {
-                          if (cleanLine.toLowerCase().includes(ingredient.name.toLowerCase()) ||
-                              (ingredient.original && cleanLine.toLowerCase().includes(ingredient.original.toLowerCase()))) {
+                        for (const ingredientObj of ingredients) {
+                          if (ingredientObj.name_from_recipe && cleanLine.toLowerCase().includes(ingredientObj.name_from_recipe.toLowerCase())) {
                             matchFound = true;
-                            matchedIngredient = ingredient;
-                            
-                            // Находим соответствующие продукты для этого ингредиента
+                            matchedIngredient = ingredientObj; 
                             if (products && products.length > 0) {
                               matchedProducts = products.filter(p => 
-                                p.ingredient && p.ingredient.toLowerCase() === ingredient.name.toLowerCase()
+                                p.ingredient && ingredientObj.name_from_recipe &&
+                                p.ingredient.toLowerCase() === ingredientObj.name_from_recipe.toLowerCase()
                               );
+                            }
+                            break;
+                          } else if (ingredientObj.original_line && cleanLine.toLowerCase().includes(ingredientObj.original_line.toLowerCase())) {
+                            matchFound = true;
+                            matchedIngredient = ingredientObj;
+                            if (products && products.length > 0) {
+                              matchedProducts = products.filter(p => 
+                                p.ingredient && ingredientObj.original_line &&
+                                p.ingredient.toLowerCase() === ingredientObj.original_line.toLowerCase()
+                              ); 
                             }
                             break;
                           }

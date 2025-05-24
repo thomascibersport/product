@@ -7,10 +7,23 @@ export const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  // Initialize user from localStorage if available
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [token, setToken] = useState(Cookies.get("token") || null);
   const [isLoading, setIsLoading] = useState(!!Cookies.get("token")); // true, если токен есть
   const [hasMessages, setHasMessages] = useState(false);
+
+  // Update localStorage when user changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
+    }
+  }, [user]);
 
   const login = (newToken, newUsername, newAvatar) => {
     setToken(newToken);
@@ -50,7 +63,9 @@ export const AuthProvider = ({ children }) => {
     setHasMessages(false);
     setIsLoading(false);
     Cookies.remove("token");
+    localStorage.removeItem("user");
   };
+  
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -63,6 +78,7 @@ export const AuthProvider = ({ children }) => {
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false));
   }, [token]);
+  
   return (
     <AuthContext.Provider
       value={{

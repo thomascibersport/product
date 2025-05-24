@@ -6,6 +6,7 @@ from django.db.models import F
 from django.contrib.auth import get_user_model
 from authentication.models import CustomUser 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from authentication.serializers import UserMediaSerializer
 
 User = get_user_model()
 
@@ -118,10 +119,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "username", "email", "avatar", "first_name", "last_name",
-            "middle_name", "phone", "show_phone", "is_staff"
+            "middle_name", "phone", "show_phone", "is_staff", "bio"
         ]
         extra_kwargs = {
-            "show_phone": {"required": False}
+            "show_phone": {"required": False},
+            "bio": {"required": False}
         }
 
     def get_avatar(self, obj):
@@ -202,12 +204,14 @@ class OrderSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     average_rating = serializers.FloatField(read_only=True)
     successful_deals = serializers.SerializerMethodField()
+    media = UserMediaSerializer(many=True, read_only=True)
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating', 'successful_deals']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating', 'successful_deals', 'bio', 'media']
         extra_kwargs = {
-            'show_phone': {'required': False, 'allow_null': True}
+            'show_phone': {'required': False, 'allow_null': True},
+            'bio': {'required': False, 'allow_null': True}
         }
 
     def get_successful_deals(self, obj):
