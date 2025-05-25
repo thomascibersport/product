@@ -298,7 +298,7 @@ const UserProfile = () => {
                     {user.first_name} {user.last_name}
                   </h1>
                   <div className="ml-4 px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full font-medium text-sm">
-                    {user.successful_deals > 0 ? 'Продавец' : 'Новичок'}
+                    {user.is_seller ? 'Продавец' : 'Пользователь'}
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-4">
@@ -316,6 +316,7 @@ const UserProfile = () => {
                     <FaShoppingBag className="mr-1 text-green-500 dark:text-green-400" />
                     <span>{user.successful_deals || 0} успешных сделок</span>
                   </div>
+
                 </div>
               </div>
               

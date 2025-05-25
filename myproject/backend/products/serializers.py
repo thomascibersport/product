@@ -208,7 +208,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating', 'successful_deals', 'bio', 'media']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'avatar', 'show_phone', 'average_rating', 'successful_deals', 'bio', 'media', 'is_seller', 'seller_status']
         extra_kwargs = {
             'show_phone': {'required': False, 'allow_null': True},
             'bio': {'required': False, 'allow_null': True}

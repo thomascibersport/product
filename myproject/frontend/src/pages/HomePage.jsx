@@ -32,6 +32,8 @@ const HomePage = () => {
   const [manualLocationInput, setManualLocationInput] = useState("");
   const [isSettingManualLocation, setIsSettingManualLocation] = useState(false);
   const [showManualLocationInput, setShowManualLocationInput] = useState(false);
+  // Add new state for API status
+  const [yandexApiStatus, setYandexApiStatus] = useState(null);
 
   // Yandex Geocoder API key
   const YANDEX_API_KEY = "f2749db0-14ee-4f82-b043-5bb8082c4aa9";
@@ -42,10 +44,66 @@ const HomePage = () => {
     return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
   };
 
+  // Function to check if Yandex API is available
+  const checkYandexApiStatus = async () => {
+    try {
+      // Try making a simple request to check if API is accessible
+      const testLocation = "Moscow";
+      const response = await axios.get(
+        `https://geocode-maps.yandex.ru/1.x/?apikey=${YANDEX_API_KEY}&format=json&geocode=${encodeURIComponent(testLocation)}&lang=ru_RU&results=1`
+      );
+      
+      if (response.status === 200) {
+        setYandexApiStatus("available");
+        return true;
+      } else {
+        setYandexApiStatus("unavailable");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error checking Yandex API status:", error);
+      
+      if (error.response && error.response.status === 403) {
+        if (error.response.data && error.response.data.message === "Limit is exceeded") {
+          setYandexApiStatus("limit_exceeded");
+        } else {
+          setYandexApiStatus("forbidden");
+        }
+      } else {
+        setYandexApiStatus("error");
+      }
+      return false;
+    }
+  };
+
   // Function to get user's current location with high accuracy
-  const getUserLocation = () => {
+  const getUserLocation = async () => {
     setLoadingLocation(true);
     setLocationError(null);
+    
+    // First check if API is available
+    const isApiAvailable = await checkYandexApiStatus();
+    if (!isApiAvailable) {
+      let errorMsg = "API Яндекс.Карт недоступен. ";
+      
+      switch(yandexApiStatus) {
+        case "limit_exceeded":
+          errorMsg += "Превышен лимит запросов к API.";
+          break;
+        case "forbidden":
+          errorMsg += "Доступ к API запрещен.";
+          break;
+        case "error":
+          errorMsg += "Ошибка соединения с API.";
+          break;
+        default:
+          errorMsg += "Пожалуйста, попробуйте позже.";
+      }
+      
+      setLocationError(errorMsg);
+      setLoadingLocation(false);
+      return;
+    }
     
     if (!navigator.geolocation) {
       setLocationError("Геолокация не поддерживается вашим браузером");
@@ -164,6 +222,17 @@ const HomePage = () => {
       }
     } catch (error) {
       console.error("Error reverse geocoding with Yandex:", error);
+      
+      if (error.response && error.response.status === 403) {
+        if (error.response.data && error.response.data.message === "Limit is exceeded") {
+          setYandexApiStatus("limit_exceeded");
+          setLocationError("Превышен лимит запросов к API Яндекс.Карт.");
+        } else {
+          setYandexApiStatus("forbidden");
+          setLocationError("Доступ к API Яндекс.Карт запрещен.");
+        }
+      }
+      
       setUserCity("Город не определен");
     }
   };
@@ -290,8 +359,15 @@ const HomePage = () => {
     applyFilters(updatedProducts);
   };
 
-  // Geocode all product addresses using Yandex
+  // Geocode all product addresses using Yandex - only when explicitly requested
   const geocodeAllProductAddresses = async (products) => {
+    // Check API status first
+    const isApiAvailable = await checkYandexApiStatus();
+    if (!isApiAvailable) {
+      console.log("Yandex API is not available, skipping address geocoding");
+      return productCoordinates;
+    }
+    
     const coordinates = { ...productCoordinates };
     console.log("Starting geocoding for", products.length, "products");
     
@@ -573,16 +649,16 @@ const HomePage = () => {
         
         setCities(uniqueCities);
         
-        // Geocode all product addresses
-        geocodeAllProductAddresses(fetchedProducts);
+        // No longer automatically geocode addresses or get user location
+        // This will happen only when the user clicks the location button
       })
       .catch((err) => {
         setError(err.message);
         setLoading(false);
       });
       
-    // Get user's location when component mounts
-    getUserLocation();
+    // Check initial API status without making geocoding requests
+    checkYandexApiStatus();
   }, []);
 
   useEffect(() => {
@@ -631,6 +707,26 @@ const HomePage = () => {
       return;
     }
 
+    // Check API status first
+    const isApiAvailable = await checkYandexApiStatus();
+    if (!isApiAvailable) {
+      let errorMsg = "API Яндекс.Карт недоступен. ";
+      
+      switch(yandexApiStatus) {
+        case "limit_exceeded":
+          errorMsg += "Превышен лимит запросов к API.";
+          break;
+        case "forbidden":
+          errorMsg += "Доступ к API запрещен.";
+          break;
+        default:
+          errorMsg += "Пожалуйста, попробуйте позже.";
+      }
+      
+      setLocationError(errorMsg);
+      return;
+    }
+
     setIsSettingManualLocation(true);
     setLocationError(null);
     
@@ -663,7 +759,18 @@ const HomePage = () => {
       }
     } catch (error) {
       console.error("Error setting manual location:", error);
-      setLocationError("Ошибка при установке местоположения");
+      
+      if (error.response && error.response.status === 403) {
+        if (error.response.data && error.response.data.message === "Limit is exceeded") {
+          setYandexApiStatus("limit_exceeded");
+          setLocationError("Превышен лимит запросов к API Яндекс.Карт.");
+        } else {
+          setYandexApiStatus("forbidden");
+          setLocationError("Доступ к API Яндекс.Карт запрещен.");
+        }
+      } else {
+        setLocationError("Ошибка при установке местоположения");
+      }
     } finally {
       setIsSettingManualLocation(false);
     }
@@ -822,6 +929,34 @@ const HomePage = () => {
                 📝
               </button>
             </div>
+          </div>
+          
+          {/* API Status Indicator */}
+          <div className="mt-1">
+            {yandexApiStatus && (
+              <div className={`text-sm inline-flex items-center px-2 py-1 rounded ${
+                yandexApiStatus === "available" 
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400" 
+                  : yandexApiStatus === "limit_exceeded"
+                    ? "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
+                    : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
+              }`}>
+                <span className="mr-1">
+                  {yandexApiStatus === "available" 
+                    ? "✅" 
+                    : yandexApiStatus === "limit_exceeded"
+                      ? "⚠️"
+                      : "❌"}
+                </span>
+                {yandexApiStatus === "available" 
+                  ? "API Яндекс.Карт доступен"
+                  : yandexApiStatus === "limit_exceeded"
+                    ? "Превышен лимит запросов к API Яндекс.Карт"
+                    : yandexApiStatus === "forbidden"
+                      ? "API Яндекс.Карт недоступен (доступ запрещен)"
+                      : "API Яндекс.Карт недоступен"}
+              </div>
+            )}
           </div>
           
           {/* Location status with larger font */}
