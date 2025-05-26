@@ -511,7 +511,12 @@ class UploadFileView(APIView):
             )
 
         file = request.FILES["file"]
-        file_name = default_storage.save(file.name, ContentFile(file.read()))
+        
+        # Создаем путь для сохранения файла с именем пользователя
+        user_folder = f"chat_media/{request.user.username}"
+        
+        # Сохраняем файл в созданную папку
+        file_name = default_storage.save(f"{user_folder}/{file.name}", ContentFile(file.read()))
         file_url = default_storage.url(file_name)
 
         return Response({"url": file_url}, status=status.HTTP_201_CREATED)
@@ -938,7 +943,7 @@ class SellerStatisticsView(APIView):
     def get_customer_purchases(self, seller, start_date=None, end_date=None):
         orders = Order.objects.filter(
             items__product__farmer=seller,
-            status__in=["confirmed", "shipped", "in_transit", "delivered"],
+            status__in=["confirmed", "shipped", "in_transit", "delivered", "canceled"],
         )
         if start_date and end_date:
             orders = orders.filter(

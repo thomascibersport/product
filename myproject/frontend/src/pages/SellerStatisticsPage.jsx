@@ -240,6 +240,8 @@ const SellerDashboard = () => {
     ],
   };
 
+
+
   // Определяем стили для DatePicker
   const datePickerSx = {
     bgcolor: theme.palette.mode === 'dark' ? '#ffffff' : 'inherit',
@@ -389,6 +391,14 @@ const SellerDashboard = () => {
             className="text-gray-800 dark:text-white mb-4"
           >
             Покупатели и их покупки
+          </Typography>
+          
+          {/* Note about canceled orders */}
+          <Typography
+            variant="body2"
+            className="text-orange-600 dark:text-orange-400 mb-4"
+          >
+            Примечание: В данной таблице показаны все заказы, включая отмененные.
           </Typography>
           
           {/* Enhanced Filter Section */}
@@ -767,7 +777,7 @@ const SellerDashboard = () => {
                   <div
                     className={`absolute w-12 h-12 rounded-full border-2 border-${metric.color}-500 animate-wave-3 opacity-0 z-0`}
                   />
-                  <div className="text-4xl relative z-10">{metric.icon}</div>
+                  <div className="text-4xl relative z-10 flex items-center justify-center w-12 h-12">{metric.icon}</div>
                 </div>
                 <Typography
                   variant="h6"
@@ -949,96 +959,45 @@ const SellerDashboard = () => {
               </div>
             </Paper>
           </Grid>
-          <Grid item xs={12}>
+          <Grid item xs={12} md={6}>
             <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
               <Typography
                 variant="h6"
                 className="text-gray-800 dark:text-white mb-4"
               >
-                Отмены заказов
+                Сравнение рейтингов
               </Typography>
-              <Typography
-                variant="body1"
-                className="text-gray-600 dark:text-gray-300 mb-4"
-              >
-                Всего отмен: {stats.cancellation_stats.total_cancellations}
-              </Typography>
-              <TableContainer>
-                <Table className="bg-white dark:bg-gray-800">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
-                        Причина
-                      </TableCell>
-                      <TableCell className="text-gray-800 dark:text-white bg-gray-100 dark:bg-gray-700">
-                        Количество
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {stats.cancellation_stats.reasons.map((reason, index) => (
-                      <TableRow
-                        key={index}
-                        className="bg-white dark:bg-gray-800"
-                      >
-                        <TableCell className="text-gray-600 dark:text-gray-300">
-                          {reason.cancel_reason || "Не указана"}
-                        </TableCell>
-                        <TableCell className="text-gray-600 dark:text-gray-300">
-                          {reason.count}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <div style={{ height: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: "300px" }}>
+                  <Grid container spacing={2} sx={{ textAlign: "center" }}>
+                    <Grid item xs={6}>
+                      <Typography variant="subtitle2" className="text-gray-700 dark:text-gray-300 mb-2">
+                        Ваш рейтинг (как продавца)
+                      </Typography>
+                      <Typography variant="h3" className="text-purple-600 dark:text-purple-400 font-bold mb-2">
+                        {stats.review_stats.seller.average_rating.toFixed(1)}/5
+                      </Typography>
+                      <Typography variant="body2" className="text-gray-600 dark:text-gray-400">
+                        Отзывов: {stats.review_stats.seller.total_reviews}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="subtitle2" className="text-gray-700 dark:text-gray-300 mb-2">
+                        Рейтинг покупателей
+                      </Typography>
+                      <Typography variant="h3" className="text-green-600 dark:text-green-400 font-bold mb-2">
+                        {stats.review_stats.customers.average_rating.toFixed(1)}/5
+                      </Typography>
+                      <Typography variant="body2" className="text-gray-600 dark:text-gray-400">
+                        Отзывов: {stats.review_stats.customers.total_reviews}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </div>
+              </div>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <Paper className="p-6 text-center bg-white dark:bg-gray-800 shadow-md rounded-lg">
-              <Typography
-                variant="h6"
-                className="text-gray-800 dark:text-white mb-4"
-              >
-                Ваш рейтинг (как продавца)
-              </Typography>
-              <Typography
-                variant="h2"
-                className="text-purple-600 dark:text-purple-400 font-bold"
-              >
-                {stats.review_stats.seller.average_rating.toFixed(1)}/5
-              </Typography>
-              <Typography
-                variant="body1"
-                className="text-gray-600 dark:text-gray-300"
-              >
-                Отзывов: {stats.review_stats.seller.total_reviews}
-              </Typography>
-            </Paper>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Paper className="p-6 text-center bg-white dark:bg-gray-800 shadow-md rounded-lg">
-              <Typography
-                variant="h6"
-                className="text-gray-800 dark:text-white mb-4"
-              >
-                Средний рейтинг ваших покупателей
-              </Typography>
-              <Typography
-                variant="h2"
-                className="text-green-600 dark:text-green-400 font-bold"
-              >
-                {stats.review_stats.customers.average_rating.toFixed(1)}/5
-              </Typography>
-              <Typography
-                variant="body1"
-                className="text-gray-600 dark:text-gray-300"
-              >
-                Отзывов о покупателях: {stats.review_stats.customers.total_reviews}
-              </Typography>
-            </Paper>
-          </Grid>
+
         </Grid>
       </Container>
     </div>

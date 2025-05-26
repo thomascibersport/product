@@ -113,7 +113,7 @@ const HomePage = () => {
     
     // Request location with high accuracy
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
         console.log(`Got user location: lat=${latitude}, lon=${longitude}, accuracy=${position.coords.accuracy}m`);
         
@@ -127,13 +127,8 @@ const HomePage = () => {
         // Reverse geocode to get detailed address using Yandex
         reverseGeocodeYandex(longitude, latitude);
         
-        // Calculate distances for all products if we have product coordinates
-        if (Object.keys(productCoordinates).length > 0) {
-          console.log(`Calculating distances for ${Object.keys(productCoordinates).length} products`);
-          calculateProductDistances(latitude, longitude);
-        } else {
-          console.log("No product coordinates available yet, will calculate distances when they're loaded");
-        }
+        // Geocode all product addresses to calculate distances
+        await geocodeAllProductAddresses(products);
         
         setLoadingLocation(false);
       },
@@ -747,8 +742,8 @@ const HomePage = () => {
         // Reverse geocode to get city name
         reverseGeocodeYandex(coords.longitude, coords.latitude);
         
-        // Calculate distances
-        calculateProductDistances(coords.latitude, coords.longitude);
+        // Geocode all product addresses to calculate distances
+        await geocodeAllProductAddresses(products);
         
         // Clear input field after successful location setting
         setManualLocationInput("");
@@ -929,34 +924,6 @@ const HomePage = () => {
                 📝
               </button>
             </div>
-          </div>
-          
-          {/* API Status Indicator */}
-          <div className="mt-1">
-            {yandexApiStatus && (
-              <div className={`text-sm inline-flex items-center px-2 py-1 rounded ${
-                yandexApiStatus === "available" 
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400" 
-                  : yandexApiStatus === "limit_exceeded"
-                    ? "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
-                    : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
-              }`}>
-                <span className="mr-1">
-                  {yandexApiStatus === "available" 
-                    ? "✅" 
-                    : yandexApiStatus === "limit_exceeded"
-                      ? "⚠️"
-                      : "❌"}
-                </span>
-                {yandexApiStatus === "available" 
-                  ? "API Яндекс.Карт доступен"
-                  : yandexApiStatus === "limit_exceeded"
-                    ? "Превышен лимит запросов к API Яндекс.Карт"
-                    : yandexApiStatus === "forbidden"
-                      ? "API Яндекс.Карт недоступен (доступ запрещен)"
-                      : "API Яндекс.Карт недоступен"}
-              </div>
-            )}
           </div>
           
           {/* Location status with larger font */}

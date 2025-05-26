@@ -629,43 +629,65 @@ function EditProfilePage() {
                       >
                         Применить обрезку
                       </button>
+                      <button
+                        onClick={() => {
+                          setSrc(null);
+                          setCompletedCrop(null);
+                        }}
+                        className="flex-1 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-full transition-all"
+                      >
+                        Отмена
+                      </button>
                     </div>
                   </div>
                 )}
                 {croppedBlob && (
-                  <button
-                    onClick={handleUpload}
-                    disabled={uploading}
-                    className="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {uploading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg
-                          className="animate-spin h-5 w-5 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Загрузка...
-                      </span>
-                    ) : (
-                      "Сохранить новое фото"
-                    )}
-                  </button>
+                  <div className="space-y-4">
+                    <button
+                      onClick={handleUpload}
+                      disabled={uploading}
+                      className="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg
+                            className="animate-spin h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Загрузка...
+                        </span>
+                      ) : (
+                        "Сохранить новое фото"
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCroppedBlob(null);
+                        setCroppedPreview("/media/default-avatar.png");
+                        setSrc(null);
+                        setCompletedCrop(null);
+                      }}
+                      className="w-full py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-full transition-all"
+                    >
+                      Отменить изменение
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -1140,11 +1162,13 @@ function EditProfilePage() {
                         <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
                           {selectedApplicationImages.map((image, index) => (
                             <div key={index} className="relative group">
-                              <img 
-                                src={URL.createObjectURL(image)} 
-                                alt={`Выбранное изображение ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
-                              />
+                              <div className="aspect-square rounded-lg border-2 border-gray-200 overflow-hidden">
+                                <img 
+                                  src={URL.createObjectURL(image)} 
+                                  alt={`Выбранное изображение ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
                               <button
                                 onClick={() => {
                                   const newImages = [...selectedApplicationImages];
@@ -1169,11 +1193,13 @@ function EditProfilePage() {
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {applicationImages.map((image) => (
                               <div key={image.id} className="relative group">
-                                <img 
-                                  src={image.image_url} 
-                                  alt="Загруженное изображение" 
-                                  className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
-                                />
+                                <div className="aspect-square rounded-lg border-2 border-gray-200 overflow-hidden">
+                                  <img 
+                                    src={image.image_url} 
+                                    alt="Загруженное изображение" 
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
                                 <button
                                   onClick={() => handleDeleteApplicationImage(image.id)}
                                   className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

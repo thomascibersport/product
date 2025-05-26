@@ -11,6 +11,23 @@ import "../index.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 
 const MediaGallery = ({ mediaFiles, onClose, onShowInChat }) => {
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+    
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
@@ -85,25 +102,27 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const messageRefs = useRef({});
+  const chatContainerRef = useRef(null);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
+  const [lastMessageId, setLastMessageId] = useState(null);
+  const lastProcessedMessageRef = useRef(null);
+  const lastReadMessagesRef = useRef(new Set());
+  const markReadTimeoutRef = useRef(null);
 
-  // WebSocket connection and message handling - completely rewritten
   useEffect(() => {
     let ws = null;
+    let reconnectTimeout = null;
     
     const connectWebSocket = () => {
       const token = getToken();
       if (!token || !id || !currentUserId) return null;
       
-      console.log("Connecting to WebSocket...", id);
-      
-      // Create WebSocket connection
       const newWs = new WebSocket(`ws://localhost:8000/ws/chat/${id}/?token=${token}`);
       
       newWs.onopen = () => {
         console.log("WebSocket connected for chat:", id);
         setIsConnected(true);
         
-        // Check partner's online status when connected
         newWs.send(JSON.stringify({
           type: 'check_online',
           partner_id: id
@@ -113,30 +132,42 @@ const ChatPage = () => {
       newWs.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("WebSocket message received:", data);
-          console.log("Message type:", data.type);
           
           if (data.type === 'message') {
             const newMessage = data.message;
-            console.log("New message received:", newMessage);
             
-            // Only add this message if it doesn't already exist in our state
             if (newMessage && typeof newMessage.id !== 'undefined') {
               setMessages(prevMessages => {
-                // Check for existing message
-                const existingMessage = prevMessages.find(msg => msg.id === newMessage.id);
+                const existingMessage = prevMessages.find(msg => 
+                  msg.id === newMessage.id && !msg.isSending
+                );
+                
                 if (existingMessage) {
-                  console.log(`Message ${newMessage.id} already exists, not adding again`);
                   return prevMessages;
                 }
                 
-                console.log(`Adding message ${newMessage.id} to state`);
+                const tempMessage = prevMessages.find(msg => 
+                  msg.isSending && 
+                  msg.content === newMessage.content &&
+                  msg.sender.id === newMessage.sender.id
+                );
+                
+                if (newMessage.sender.id !== currentUserId) {
+                  setShouldScrollToBottom(true);
+                }
+                
+                setLastMessageId(newMessage.id);
+                
+                if (tempMessage) {
+                  return prevMessages.map(msg => 
+                    msg.id === tempMessage.id ? { ...newMessage, is_read: msg.is_read } : msg
+                  );
+                }
+                
                 return [...prevMessages, newMessage];
               });
             }
           } else if (data.type === 'update') {
-            console.log("Message update received");
-            // Handle message update
             setMessages(prevMessages => 
               prevMessages.map(msg => 
                 msg.id === data.message.id 
@@ -145,24 +176,18 @@ const ChatPage = () => {
               )
             );
           } else if (data.type === 'delete') {
-            console.log("Message delete received");
-            // Handle message deletion
             setMessages(prevMessages => 
               prevMessages.filter(msg => msg.id !== data.message_id)
             );
           } else if (data.type === 'online_status' || data.type === 'status') {
-            // Handle online status updates
-            if (data.user_id === id) {
+            if (data.user_id === parseInt(id)) {
               if (data.type === 'online_status') {
-                console.log("Partner online status:", data.is_online);
                 setIsPartnerOnline(data.is_online);
               } else if (data.type === 'status') {
-                console.log("Partner status update:", data.status);
                 setIsPartnerOnline(data.status === 'online');
               }
             }
           } else if (data.type === 'messages_read') {
-            // Mark messages as read
             if (data.reader_id !== currentUserId) {
               setMessages(prevMessages => 
                 prevMessages.map(msg => 
@@ -183,11 +208,12 @@ const ChatPage = () => {
         setIsConnected(false);
         setIsPartnerOnline(false);
         
-        // Try to reconnect if the connection was closed unexpectedly
         if (event.code !== 1000) {
-          console.log("Attempting to reconnect in 3 seconds...");
-          setTimeout(() => {
-            // Only attempt reconnection if component is still mounted
+          if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+          }
+          
+          reconnectTimeout = setTimeout(() => {
             if (socket !== null) {
               connectWebSocket();
             }
@@ -203,46 +229,99 @@ const ChatPage = () => {
       return newWs;
     };
     
-    // Initial connection
     ws = connectWebSocket();
     setSocket(ws);
     
-    // Cleanup function
     return () => {
       console.log("Cleaning up WebSocket connection");
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      
       if (ws) {
-        // Update the socket reference to null before closing
         setSocket(null);
-        // Use a clean close code to prevent reconnection attempts
         ws.close(1000, "Component unmounted");
       }
     };
   }, [id, currentUserId]);
 
-  // Effect for scrolling to the bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]); // Runs when the messages array changes
-
-  // Effect to mark messages as read when received
-  useEffect(() => {
-    if (socket && isConnected && messages.length > 0) {
-      // Find any unread messages from partner
-      const unreadMessages = messages.filter(
-        msg => msg.sender.id !== currentUserId && !msg.is_read
-      );
+    const handleScroll = () => {
+      if (!chatContainerRef.current) return;
       
-      // Mark them as read through WebSocket if there are any
-      if (unreadMessages.length > 0) {
-        socket.send(JSON.stringify({
-          type: 'mark_read',
-          message_ids: unreadMessages.map(msg => msg.id)
-        }));
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      
+      setShouldScrollToBottom(isNearBottom);
+    };
+    
+    const container = chatContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+    }
+    
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0 && lastMessageId && shouldScrollToBottom) {
+      if (lastProcessedMessageRef.current !== lastMessageId) {
+        lastProcessedMessageRef.current = lastMessageId;
+        
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
       }
     }
+  }, [messages, lastMessageId, shouldScrollToBottom]);
+
+  useEffect(() => {
+    if (markReadTimeoutRef.current) {
+      clearTimeout(markReadTimeoutRef.current);
+      markReadTimeoutRef.current = null;
+    }
+
+    if (socket && isConnected && messages.length > 0) {
+      const unreadMessages = messages.filter(
+        msg => msg.sender.id !== currentUserId && !msg.is_read && 
+              !lastReadMessagesRef.current.has(msg.id)
+      );
+      
+      if (unreadMessages.length > 0) {
+        markReadTimeoutRef.current = setTimeout(() => {
+          const messageIds = unreadMessages.map(msg => msg.id);
+          
+          socket.send(JSON.stringify({
+            type: 'mark_read',
+            message_ids: messageIds
+          }));
+          
+          messageIds.forEach(id => lastReadMessagesRef.current.add(id));
+        }, 300);
+      }
+    }
+
+    return () => {
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+        markReadTimeoutRef.current = null;
+      }
+    };
   }, [messages, currentUserId, socket, isConnected]);
+
+  useEffect(() => {
+    return () => {
+      lastReadMessagesRef.current.clear();
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+        markReadTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -296,15 +375,14 @@ const ChatPage = () => {
 
     fetchCurrentUser();
     fetchPartner();
-    fetchMessages(); // Load initial messages
+    fetchMessages();
     
-    // Set up polling as fallback if WebSocket fails
     const pollingInterval = setInterval(() => {
       if (!isConnected) {
         console.log("WebSocket not connected, polling for messages");
         fetchMessages();
       }
-    }, 10000); // Poll every 10 seconds if WebSocket is down
+    }, 10000);
     
     return () => {
       clearInterval(pollingInterval);
@@ -329,7 +407,6 @@ const ChatPage = () => {
     setMediaFiles(media);
   }, [messages]);
 
-  // Separate function to handle sending messages
   const handleSendMessage = async (e) => {
     e.preventDefault();
     const token = getToken();
@@ -343,41 +420,53 @@ const ChatPage = () => {
     }
     
     const messageToSend = newMessage.trim();
-    setNewMessage(""); // Clear input immediately for better UX
+    setNewMessage("");
     
-    // Create a temporary message to show immediately in the UI
     const tempId = `temp-${Date.now()}`;
     const tempMessage = {
       id: tempId,
       content: messageToSend,
       sender: {
         id: currentUserId,
-        first_name: "", // Will be replaced with actual data when message is received back
+        first_name: "",
         last_name: ""
       },
       timestamp: new Date().toISOString(),
       is_read: false,
-      isSending: true // Flag to show it's still sending
+      isSending: true
     };
     
-    // Add temp message to state
     setMessages(prevMessages => [...prevMessages, tempMessage]);
     
     try {
       if (socket && isConnected && socket.readyState === WebSocket.OPEN) {
         console.log("Sending message via WebSocket:", messageToSend);
         
-        // Send via WebSocket
         socket.send(JSON.stringify({
           type: 'message',
           content: messageToSend,
           recipient_id: id
         }));
         
-        // The real message will come back through the WebSocket and replace our temp message
+        setTimeout(() => {
+          setMessages(prevMessages => {
+            const messageStillTemp = prevMessages.find(
+              m => m.id === tempId && m.isSending
+            );
+            
+            if (messageStillTemp) {
+              return prevMessages.map(msg => 
+                msg.id === tempId 
+                  ? { ...msg, isSending: false, sendFailed: true } 
+                  : msg
+              );
+            }
+            return prevMessages;
+          });
+        }, 5000);
+        
       } else {
         console.log("WebSocket not connected, using REST API");
-        // Fallback to REST API
         const response = await axios.post(
           "http://localhost:8000/api/messages/send/",
           { recipient_id: id, content: messageToSend },
@@ -386,14 +475,12 @@ const ChatPage = () => {
         
         console.log("Message sent via REST API, response:", response.data);
         
-        // Replace our temp message with the real one from the server
         setMessages(prevMessages => 
           prevMessages.map(msg => 
-            msg.id === tempId ? response.data : msg
+            msg.id === tempId ? { ...response.data, is_read: false } : msg
           )
         );
         
-        // Try to reconnect WebSocket
         if (socket && socket.readyState !== WebSocket.OPEN) {
           console.log("Attempting to reconnect WebSocket after REST API message...");
           const newWs = new WebSocket(`ws://localhost:8000/ws/chat/${id}/?token=${token}`);
@@ -404,7 +491,6 @@ const ChatPage = () => {
       console.error("Error sending message:", err);
       toast.error("Не удалось отправить сообщение: " + (err.message || "Неизвестная ошибка"));
       
-      // Mark the temp message as failed
       setMessages(prevMessages => 
         prevMessages.map(msg => 
           msg.id === tempId 
@@ -460,14 +546,12 @@ const ChatPage = () => {
       const fileUrl = uploadResponse.data.url;
 
       if (socket && isConnected) {
-        // Send via WebSocket
         socket.send(JSON.stringify({
           type: 'message',
           content: `Файл: ${fileUrl}`,
           recipient_id: id
         }));
       } else {
-        // Fallback to REST API
         const messageResponse = await axios.post(
           "http://localhost:8000/api/messages/send/",
           { recipient_id: id, content: `Файл: ${fileUrl}` },
@@ -476,10 +560,6 @@ const ChatPage = () => {
         setMessages((prevMessages) => [...prevMessages, messageResponse.data]);
       }
       
-      // Scrolling will be handled by the useEffect hook watching 'messages'
-      // setTimeout(() => {
-      //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      // }, 0);
     } catch (err) {
       console.error("Ошибка:", err.response?.data || err.message);
       toast.error(
@@ -508,7 +588,6 @@ const ChatPage = () => {
     }
     
     if (socket && isConnected) {
-      // Send via WebSocket
       socket.send(JSON.stringify({
         type: 'edit',
         message_id: messageId,
@@ -518,7 +597,6 @@ const ChatPage = () => {
       setEditingMessageId(null);
       setEditedContent("");
     } else {
-      // Fallback to REST API
       try {
         const response = await axios.patch(
           `http://localhost:8000/api/messages/${messageId}/`,
@@ -545,7 +623,6 @@ const ChatPage = () => {
     }
     
     if (socket && isConnected) {
-      // Send via WebSocket
       socket.send(JSON.stringify({
         type: 'delete',
         message_id: messageId
@@ -553,7 +630,6 @@ const ChatPage = () => {
       
       toast.success("Сообщение успешно удалено!");
     } else {
-      // Fallback to REST API
       try {
         await axios.delete(
           `http://localhost:8000/api/messages/${messageId}/delete/`,
@@ -629,12 +705,10 @@ const ChatPage = () => {
       )
     : messages;
 
-  // Сортировка сообщений по времени
   const sortedMessages = [...filteredMessages].sort(
     (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
   );
 
-  // Функция для получения даты без времени
   const getDateWithoutTime = (date) => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
@@ -718,7 +792,7 @@ const ChatPage = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-4 max-h-[70vh] overflow-y-auto custom-scrollbar flex justify-center items-center">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-4 max-h-[70vh] overflow-y-auto custom-scrollbar flex justify-center items-center" ref={chatContainerRef}>
           {sortedMessages.length === 0 ? (
             <p className="text-gray-500 text-center">Отправьте сообщение</p>
           ) : (
@@ -742,7 +816,6 @@ const ChatPage = () => {
                   : msg.content;
                 const isImage = fileUrl.match(/\.(jpeg|jpg|gif|png)$/) != null;
                 const isVideo = fileUrl.match(/\.(mp4|webm|ogg)$/) != null;
-                // Check if this is a temporary message still sending
                 const isSending = msg.isSending === true;
                 const sendFailed = msg.sendFailed === true;
 
@@ -835,9 +908,7 @@ const ChatPage = () => {
                                 <span>Ошибка отправки</span>
                                 <button 
                                   onClick={() => {
-                                    // Remove failed message
                                     setMessages(msgs => msgs.filter(m => m.id !== msg.id));
-                                    // Put the content back in the input
                                     setNewMessage(msg.content);
                                   }}
                                   className="bg-red-100 hover:bg-red-200 text-red-800 px-2 py-1 rounded text-xs"

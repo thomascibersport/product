@@ -15,6 +15,10 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(Cookies.get("token") || null);
   const [isLoading, setIsLoading] = useState(!!Cookies.get("token")); // true, если токен есть
   const [hasMessages, setHasMessages] = useState(false);
+  const [avatar, setAvatar] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser).avatar : null;
+  });
 
   // Update localStorage when user changes
   useEffect(() => {
@@ -24,6 +28,13 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem("user");
     }
   }, [user]);
+
+  // Update user when avatar changes
+  useEffect(() => {
+    if (user && avatar) {
+      setUser({...user, avatar});
+    }
+  }, [avatar]);
 
   const login = (newToken, newUsername, newAvatar) => {
     setToken(newToken);
@@ -60,6 +71,7 @@ export const AuthProvider = ({ children }) => {
     
     setToken(null);
     setUser(null);
+    setAvatar(null);
     setHasMessages(false);
     setIsLoading(false);
     Cookies.remove("token");
@@ -90,6 +102,8 @@ export const AuthProvider = ({ children }) => {
         isLoading,
         hasMessages,
         setHasMessages,
+        avatar,
+        setAvatar,
       }}
     >
       {children}
