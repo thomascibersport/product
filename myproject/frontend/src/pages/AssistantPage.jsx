@@ -3,6 +3,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
 import { Link } from "react-router-dom";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const AssistantPage = () => {
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -24,6 +26,7 @@ const AssistantPage = () => {
   const messagesEndRef = useRef(null);
 
   const [chatMode, setChatMode] = useState("chat"); // 'chat', 'dishRecipe', 'myOrdersRecipe'
+  const [addingToCart, setAddingToCart] = useState(false);
 
   // ADDED: useEffect to fetch user ID
   useEffect(() => {
@@ -352,6 +355,96 @@ const AssistantPage = () => {
     updateChatMessages(activeChat, []);
   };
 
+  // Функция для добавления всех продуктов из рецепта в корзину
+  const addAllProductsToCart = async (displayedRecipeProducts) => {
+    const token = Cookies.get("token");
+    if (!token) {
+      toast.error("Для добавления в корзину необходимо авторизоваться");
+      return;
+    }
+
+    if (!displayedRecipeProducts || displayedRecipeProducts.length === 0) {
+      toast.error("Нет продуктов в списке для добавления в корзину.");
+      return;
+    }
+
+    setAddingToCart(true);
+    toast.info("Обработка продуктов...");
+
+    // Группируем отображаемые продукты по упрощенному названию
+    // и выбираем лучший по рейтингу для каждого типа
+    const productsToConsider = new Map();
+
+    for (const product of displayedRecipeProducts) {
+      if (!product.id || !product.name) continue; // Пропускаем продукты без ID или имени
+
+      // Проверяем, есть ли товар в наличии (предполагаем, что displayedRecipeProducts уже содержит эту информацию)
+      // Если такой информации нет, эту проверку нужно будет добавить, загрузив данные о продуктах.
+      // Для текущей задачи, если quantity нет, считаем что товар в наличии для добавления (1 шт).
+      if (product.quantity !== undefined && product.quantity <= 0) {
+          console.log(`Продукт "${product.name}" (ID: ${product.id}) не в наличии, пропускаем.`);
+          continue; 
+      }
+
+      const simplifiedName = simplifyProductName(product.name).toLowerCase();
+      const currentRating = product.farmer?.average_rating || 0;
+
+      if (productsToConsider.has(simplifiedName)) {
+        const existingProduct = productsToConsider.get(simplifiedName);
+        const existingRating = existingProduct.farmer?.average_rating || 0;
+        if (currentRating > existingRating) {
+          productsToConsider.set(simplifiedName, product);
+        }
+      } else {
+        productsToConsider.set(simplifiedName, product);
+      }
+    }
+
+    const finalProductsList = Array.from(productsToConsider.values());
+
+    if (finalProductsList.length === 0) {
+      toast.error("Нет доступных продуктов для добавления в корзину.");
+      setAddingToCart(false);
+      return;
+    }
+
+    toast.info(`Добавляем ${finalProductsList.length} уникальных продуктов в корзину...`);
+    let addedCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const product of finalProductsList) {
+        try {
+          console.log(`Добавляем в корзину: ${product.name}, ID: ${product.id}, Рейтинг продавца: ${product.farmer?.average_rating || 'N/A'}`);
+          await axios.post(
+            "http://localhost:8000/api/cart/",
+            { product: product.id, quantity: 1 }, // Всегда добавляем 1 штуку
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          addedCount++;
+        } catch (error) {
+          console.error(`Ошибка при добавлении продукта ${product.name} в корзину:`, error);
+          errorCount++;
+        }
+      }
+
+      if (addedCount > 0) {
+        toast.success(`Успешно добавлено ${addedCount} продуктов в корзину.`);
+      }
+      if (errorCount > 0) {
+        toast.warning(`Не удалось добавить ${errorCount} продуктов.`);
+      }
+      if (addedCount === 0 && errorCount > 0) {
+          toast.error("Не удалось добавить ни одного продукта в корзину.");
+      }
+    } catch (error) {
+      console.error("Общая ошибка при добавлении продуктов в корзину:", error);
+      toast.error("Произошла ошибка при добавлении продуктов в корзину.");
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   // Функция для форматирования текста рецепта
   const formatRecipeText = (text, products, ingredients) => {
     if (!text) return "";
@@ -364,20 +457,45 @@ const AssistantPage = () => {
         {/* Отображаем список продуктов если есть */}
         {products && products.length > 0 && (
           <div className="mb-6 bg-blue-50 dark:bg-slate-800 p-5 rounded-xl shadow-sm">
-            <h4 className="font-semibold text-lg mb-3 text-blue-700 dark:text-blue-400">
-              <span className="inline-block mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </span>
-              Доступные продукты для этого рецепта
-            </h4>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+              <h4 className="font-semibold text-lg text-blue-700 dark:text-blue-400 flex items-center">
+                <span className="inline-block mr-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </span>
+                Доступные продукты для этого рецепта
+              </h4>
+              <button
+                onClick={() => addAllProductsToCart(products)}
+                disabled={addingToCart}
+                className="mt-2 md:mt-0 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors duration-200 flex items-center disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {addingToCart ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Добавление...
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Купить продукты
+                  </>
+                )}
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {products.map((product, idx) => {
                 if (product.id) { // Product from "dishRecipe" - has ID, image, price
+                  const searchTerm = simplifyProductName(product.name);
                   return (
                     <Link
-                      to={`/product/${product.id}`}
+                      to={`/?base_search=${encodeURIComponent(searchTerm)}&full_search=${encodeURIComponent(product.name)}`}
                       key={idx}
                       className="flex flex-col bg-white dark:bg-slate-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 hover:scale-102"
                     >
@@ -492,6 +610,10 @@ const AssistantPage = () => {
                                 p.ingredient && ingredientObj.name_from_recipe &&
                                 p.ingredient.toLowerCase() === ingredientObj.name_from_recipe.toLowerCase()
                               );
+                              // Сохраняем найденные продукты в ингредиенте для добавления в корзину
+                              if (matchedProducts.length > 0) {
+                                ingredientObj.matched_products = matchedProducts;
+                              }
                             }
                             break;
                           } else if (ingredientObj.original_line && cleanLine.toLowerCase().includes(ingredientObj.original_line.toLowerCase())) {
@@ -502,6 +624,10 @@ const AssistantPage = () => {
                                 p.ingredient && ingredientObj.original_line &&
                                 p.ingredient.toLowerCase() === ingredientObj.original_line.toLowerCase()
                               ); 
+                              // Сохраняем найденные продукты в ингредиенте для добавления в корзину
+                              if (matchedProducts.length > 0) {
+                                ingredientObj.matched_products = matchedProducts;
+                              }
                             }
                             break;
                           }
@@ -518,19 +644,22 @@ const AssistantPage = () => {
                           {/* Показываем миниатюрные карточки товаров, если есть совпадения */}
                           {matchFound && matchedProducts.length > 0 && (
                             <div className="ml-6 mt-1 flex flex-wrap gap-2">
-                              {matchedProducts.slice(0, 2).map((product, prodIdx) => (
-                                <Link 
-                                  key={prodIdx}
-                                  to={`/product/${product.id}`}
-                                  className="flex items-center px-2 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm hover:shadow text-xs text-gray-700 dark:text-slate-300"
-                                >
-                                  {product.image && (
-                                    <img src={product.image} alt={product.name} className="w-4 h-4 mr-1 rounded-full object-cover" />
-                                  )}
-                                  <span className="truncate max-w-[100px]">{product.name}</span>
-                                  <span className="ml-1 text-green-600 dark:text-green-400">{product.price} ₽</span>
-                                </Link>
-                              ))}
+                              {matchedProducts.slice(0, 2).map((product, prodIdx) => {
+                                const searchTerm = simplifyProductName(product.name);
+                                return (
+                                  <Link 
+                                    key={prodIdx}
+                                    to={`/?base_search=${encodeURIComponent(searchTerm)}&full_search=${encodeURIComponent(product.name)}`}
+                                    className="flex items-center px-2 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm hover:shadow text-xs text-gray-700 dark:text-slate-300"
+                                  >
+                                    {product.image && (
+                                      <img src={product.image} alt={product.name} className="w-4 h-4 mr-1 rounded-full object-cover" />
+                                    )}
+                                    <span className="truncate max-w-[100px]">{product.name}</span>
+                                    <span className="ml-1 text-green-600 dark:text-green-400">{product.price} ₽</span>
+                                  </Link>
+                                );
+                              })}
                               {matchedProducts.length > 2 && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400 self-center">
                                   +{matchedProducts.length - 2} ещё
@@ -604,9 +733,31 @@ const AssistantPage = () => {
         : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-600 ring-gray-300 dark:ring-slate-600'
     }`;
 
+  // Функция для упрощения названия продукта (удаляет окончания множественного числа)
+  const simplifyProductName = (name) => {
+    if (!name) return "";
+    
+    // Преобразуем в нижний регистр
+    let simpleName = name.toLowerCase();
+    
+    // Удаляем окончания множественного числа и прочие вариации
+    const endings = ['ы', 'и', 'а', 'я', 'ов', 'ей'];
+    
+    // Проверяем каждое окончание
+    for (const ending of endings) {
+      if (simpleName.endsWith(ending) && simpleName.length > ending.length + 3) {
+        // Удаляем окончание только если оставшееся слово достаточно длинное
+        return simpleName.slice(0, -ending.length);
+      }
+    }
+    
+    return simpleName;
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-slate-900">
       <Header />
+      <ToastContainer position="top-right" />
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Панель инструментов с выбором чата */}
         <div className="flex justify-between items-center mb-6">

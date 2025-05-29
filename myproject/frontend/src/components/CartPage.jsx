@@ -228,7 +228,7 @@ const CartPage = () => {
         payment_method: paymentType,
         delivery_address: deliveryType === "delivery" ? deliveryAddress : null,
         pickup_address:
-          deliveryType === "pickup" ? "ул. Примерная, 123 (Пункт выдачи)" : null,
+          deliveryType === "pickup" ? "" : null,
         items: cartItems.map((item) => ({
           product: item.product.id,
           quantity: item.quantity,
@@ -560,16 +560,18 @@ const CartPage = () => {
                   )}
                 </div>
 
-                {pickupItems.length > 0 && (
-                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                      Товары без доставки будут доступны для самовывоза по
-                      адресу:
-                      <br />
-                      <span className="font-medium">
-                        ул. Примерная, 123 (Пункт выдачи)
-                      </span>
+                {deliveryType === "pickup" && pickupItems.length > 0 && (
+                  <div className="mt-4 p-4 bg-yellow-100 dark:bg-yellow-800 rounded-lg">
+                    <p className="text-yellow-700 dark:text-yellow-300 font-semibold">
+                      Товары для самовывоза:
                     </p>
+                    <ul className="list-disc list-inside mt-2 text-yellow-700 dark:text-yellow-300">
+                      {pickupItems.map((item) => (
+                        <li key={item.id}>
+                          {item.product.name} ({item.quantity} шт.)
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
                 <div className="space-y-4">

@@ -14,17 +14,31 @@ Modal.setAppElement("#root");
 // Add custom styles for react-modal
 const customModalStyles = {
   overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     backdropFilter: 'blur(5px)',
     zIndex: 50,
-    overflow: 'hidden'
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'auto'
   },
   content: {
-    inset: 'auto',
-    overflow: 'visible',
+    position: 'relative',
+    top: 'auto',
+    left: 'auto',
+    right: 'auto',
+    bottom: 'auto',
+    margin: '2rem auto',
     border: 'none',
     background: 'transparent',
-    padding: 0
+    padding: 0,
+    maxWidth: '32rem',
+    width: '100%'
   }
 };
 
@@ -563,8 +577,8 @@ const UserProfile = () => {
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
         style={customModalStyles}
-        className="max-w-md mx-auto mt-20 outline-none"
-        overlayClassName="fixed inset-0 flex justify-center"
+        className="outline-none"
+        overlayClassName="fixed inset-0 flex justify-center items-center"
       >
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Отправить сообщение</h2>
@@ -604,8 +618,8 @@ const UserProfile = () => {
         isOpen={isReviewModalOpen}
         onRequestClose={() => setIsReviewModalOpen(false)}
         style={customModalStyles}
-        className="max-w-md mx-auto mt-20 outline-none"
-        overlayClassName="fixed inset-0 flex justify-center"
+        className="outline-none"
+        overlayClassName="fixed inset-0 flex justify-center items-center"
       >
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Оставить отзыв</h2>
@@ -654,7 +668,7 @@ const UserProfile = () => {
         </div>
       </Modal>
       
-      <ToastContainer position="bottom-right" theme="colored" />
+      <ToastContainer />
     </div>
   );
 };

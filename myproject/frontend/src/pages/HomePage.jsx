@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Header from "../components/Header";
 
 const HomePage = () => {
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,9 @@ const HomePage = () => {
   const [showManualLocationInput, setShowManualLocationInput] = useState(false);
   // Add new state for API status
   const [yandexApiStatus, setYandexApiStatus] = useState(null);
+  const [recipeProductIds, setRecipeProductIds] = useState([]);
+  const [baseSearch, setBaseSearch] = useState("");
+  const [fullSearch, setFullSearch] = useState("");
 
   // Yandex Geocoder API key
   const YANDEX_API_KEY = "f2749db0-14ee-4f82-b043-5bb8082c4aa9";
@@ -524,83 +528,32 @@ const HomePage = () => {
     return { city: "Город не указан" };
   };
 
-  // Apply all current filters to products
-  const applyFilters = (productsToFilter = products) => {
-    let filtered = [...productsToFilter];
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter((product) =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filter by category
-    if (categoryFilter) {
-      filtered = filtered.filter(
-        (product) => product.category?.id === parseInt(categoryFilter)
-      );
-    }
-
-    // Filter by delivery
-    if (deliveryFilter) {
-      filtered = filtered.filter((product) => product.delivery_available);
-    }
-
-    // Filter by minimum rating
-    if (minRating > 0) {
-      filtered = filtered.filter(
-        (product) => (product.farmer?.average_rating ?? 0) >= minRating
-      );
-    }
-
-    // Filter by price range
-    if (minPrice) {
-      filtered = filtered.filter(
-        (product) => product.price >= parseFloat(minPrice)
-      );
-    }
-    if (maxPrice) {
-      filtered = filtered.filter(
-        (product) => product.price <= parseFloat(maxPrice)
-      );
+  // Функция для упрощения названия продукта (удаляет окончания множественного числа)
+  // Должна совпадать с той же функцией в AssistantPage
+  const simplifyProductName = (name) => {
+    if (!name) return "";
+    
+    // Преобразуем в нижний регистр
+    let simpleName = name.toLowerCase();
+    
+    // Удаляем окончания множественного числа и прочие вариации
+    const endings = ['ы', 'и', 'а', 'я', 'ов', 'ей'];
+    
+    // Проверяем каждое окончание
+    for (const ending of endings) {
+      if (simpleName.endsWith(ending) && simpleName.length > ending.length + 3) {
+        // Удаляем окончание только если оставшееся слово достаточно длинное
+        return simpleName.slice(0, -ending.length);
+      }
     }
     
-    // Filter by city
-    if (cityFilter) {
-      filtered = filtered.filter((product) => {
-        if (!product.seller_address) return false;
-        const { city } = parseSellerAddress(product.seller_address);
-        return city.toLowerCase().includes(cityFilter.toLowerCase());
-      });
-    }
-    
-    // Filter by distance if user location is available
-    if (userLocation && maxDistance) {
-      filtered = filtered.filter((product) => {
-        // Check if distance is available and is a number
-        return typeof product.distance === 'number' && 
-               !isNaN(product.distance) && 
-               product.distance <= parseFloat(maxDistance);
-      });
-    }
+    return simpleName;
+  };
 
-    // Sorting
-    if (sortOption === "priceAsc") {
-      filtered.sort((a, b) => a.price - b.price);
-    } else if (sortOption === "priceDesc") {
-      filtered.sort((a, b) => b.price - a.price);
-    } else if (sortOption === "ratingDesc") {
-      filtered.sort(
-        (a, b) =>
-          (b.farmer?.average_rating ?? 0) - (a.farmer?.average_rating ?? 0)
-      );
-    } else if (sortOption === "distanceAsc" && userLocation) {
-      filtered.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
-    }
-
-    setFilteredProducts(filtered);
-    setCurrentPage(1);
+  // Function to get query parameters from URL
+  const getQueryParam = (param) => {
+    const searchParams = new URLSearchParams(location.search);
+    return searchParams.get(param);
   };
 
   useEffect(() => {
@@ -608,6 +561,36 @@ const HomePage = () => {
     const config = token
       ? { headers: { Authorization: `Bearer ${token}` } }
       : {};
+
+    // Check for search parameters in URL
+    const searchFromUrl = getQueryParam("search");
+    const baseSearchFromUrl = getQueryParam("base_search");
+    const fullSearchFromUrl = getQueryParam("full_search");
+    
+    // Set search states
+    if (searchFromUrl) {
+      setSearchTerm(searchFromUrl);
+    }
+    
+    if (baseSearchFromUrl) {
+      setBaseSearch(baseSearchFromUrl);
+    }
+    
+    if (fullSearchFromUrl) {
+      setFullSearch(fullSearchFromUrl);
+      // Also set the displayed search term to the full product name
+      setSearchTerm(fullSearchFromUrl);
+    }
+
+    // Still keep recipe product IDs for backward compatibility
+    const productIdsFromUrl = getQueryParam("product_ids");
+    let idsArray = [];
+    if (productIdsFromUrl) {
+      idsArray = productIdsFromUrl.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+      setRecipeProductIds(idsArray);
+    } else {
+      setRecipeProductIds([]);
+    }
 
     // Fetch categories
     axios
@@ -625,7 +608,35 @@ const HomePage = () => {
       .then((response) => {
         const fetchedProducts = response.data;
         setProducts(fetchedProducts);
-        setFilteredProducts(fetchedProducts);
+        
+        // Apply filtering based on URL parameters
+        let filtered = fetchedProducts;
+        
+        // Filter by recipe product IDs if present
+        if (idsArray && idsArray.length > 0) {
+          filtered = filtered.filter(
+            product => idsArray.includes(product.id)
+          );
+        } 
+        // Advanced search with base form for similar product names
+        else if (baseSearchFromUrl) {
+          filtered = filtered.filter((product) => {
+            // Simplify the product name in the same way
+            const simplifiedName = simplifyProductName(product.name);
+            
+            // Check if simplified name contains the base search term
+            return simplifiedName.includes(baseSearchFromUrl.toLowerCase());
+          });
+        }
+        // Regular search term if present (fallback)
+        else if (searchFromUrl) {
+          filtered = filtered.filter((product) =>
+            product.name.toLowerCase().includes(searchFromUrl.toLowerCase())
+          );
+        }
+        
+        setFilteredProducts(filtered);
+        
         setLoading(false);
         
         // Extract unique cities from products
@@ -643,9 +654,6 @@ const HomePage = () => {
         )].sort(); // Sort alphabetically
         
         setCities(uniqueCities);
-        
-        // No longer automatically geocode addresses or get user location
-        // This will happen only when the user clicks the location button
       })
       .catch((err) => {
         setError(err.message);
@@ -654,10 +662,12 @@ const HomePage = () => {
       
     // Check initial API status without making geocoding requests
     checkYandexApiStatus();
-  }, []);
+  }, [location.search]); // Add location.search to dependencies
 
   useEffect(() => {
-    applyFilters();
+    if (recipeProductIds.length === 0) {
+      applyFilters();
+    }
   }, [
     searchTerm,
     categoryFilter,
@@ -788,6 +798,129 @@ const HomePage = () => {
     applyFilters();
   };
 
+  // Apply all current filters to products
+  const applyFilters = (productsToFilter = products) => {
+    // If we have recipe product IDs, filter by those IDs
+    if (recipeProductIds.length > 0) {
+      const filtered = productsToFilter.filter(
+        product => recipeProductIds.includes(product.id)
+      );
+      setFilteredProducts(filtered);
+      return;
+    }
+    
+    let filtered = [...productsToFilter];
+
+    // Advanced search with base form for similar product names
+    if (baseSearch) {
+      filtered = filtered.filter((product) => {
+        // Simplify the product name in the same way
+        const simplifiedName = simplifyProductName(product.name);
+        // Check if simplified name contains the base search term
+        return simplifiedName.includes(baseSearch.toLowerCase());
+      });
+    }
+    // Regular search term
+    else if (searchTerm) {
+      filtered = filtered.filter((product) =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by category
+    if (categoryFilter) {
+      filtered = filtered.filter(
+        (product) => product.category?.id === parseInt(categoryFilter)
+      );
+    }
+
+    // Filter by delivery
+    if (deliveryFilter) {
+      filtered = filtered.filter((product) => product.delivery_available);
+    }
+
+    // Filter by minimum rating
+    if (minRating > 0) {
+      filtered = filtered.filter(
+        (product) => (product.farmer?.average_rating ?? 0) >= minRating
+      );
+    }
+
+    // Filter by price range
+    if (minPrice) {
+      filtered = filtered.filter(
+        (product) => product.price >= parseFloat(minPrice)
+      );
+    }
+    if (maxPrice) {
+      filtered = filtered.filter(
+        (product) => product.price <= parseFloat(maxPrice)
+      );
+    }
+    
+    // Filter by city
+    if (cityFilter) {
+      filtered = filtered.filter((product) => {
+        if (!product.seller_address) return false;
+        const { city } = parseSellerAddress(product.seller_address);
+        return city.toLowerCase().includes(cityFilter.toLowerCase());
+      });
+    }
+    
+    // Filter by distance if user location is available
+    if (userLocation && maxDistance) {
+      filtered = filtered.filter((product) => {
+        // Check if distance is available and is a number
+        return typeof product.distance === 'number' && 
+               !isNaN(product.distance) && 
+               product.distance <= parseFloat(maxDistance);
+      });
+    }
+
+    // Sorting
+    if (sortOption === "priceAsc") {
+      filtered.sort((a, b) => a.price - b.price);
+    } else if (sortOption === "priceDesc") {
+      filtered.sort((a, b) => b.price - a.price);
+    } else if (sortOption === "ratingDesc") {
+      filtered.sort(
+        (a, b) =>
+          (b.farmer?.average_rating ?? 0) - (a.farmer?.average_rating ?? 0)
+      );
+    } else if (sortOption === "distanceAsc" && userLocation) {
+      filtered.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+    }
+
+    setFilteredProducts(filtered);
+    setCurrentPage(1);
+  };
+
+  // Add function to clear recipe product filter
+  const clearRecipeProductFilter = () => {
+    setRecipeProductIds([]);
+    // Reset URL without the query parameter
+    window.history.replaceState({}, document.title, window.location.pathname);
+    applyFilters(products);
+  };
+
+  // Add function to clear search filter
+  const clearSearchFilter = () => {
+    setSearchTerm("");
+    // Reset URL without the query parameter
+    window.history.replaceState({}, document.title, window.location.pathname);
+    applyFilters(products);
+  };
+
+  // Add function to clear advanced search filter
+  const clearAdvancedSearchFilter = () => {
+    setSearchTerm("");
+    setBaseSearch("");
+    setFullSearch("");
+    // Reset URL without the query parameters
+    window.history.replaceState({}, document.title, window.location.pathname);
+    applyFilters(products);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
@@ -796,194 +929,241 @@ const HomePage = () => {
           🛍️ Все товары
         </h1>
 
-        {/* Filters and Search */}
-        <div className="mb-8 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Поле поиска */}
-            <input
-              type="text"
-              placeholder="Поиск по названию"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
-            />
-            {/* Выбор категории */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+        {/* Recipe Product Filter Notice */}
+        {recipeProductIds.length > 0 && (
+          <div className="mb-6 bg-blue-100 dark:bg-blue-900 p-4 rounded-lg text-center">
+            <p className="text-blue-700 dark:text-blue-300 font-medium">
+              Показаны только продукты из рецепта ({filteredProducts.length})
+            </p>
+            <button
+              onClick={clearRecipeProductFilter}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
-              <option value="">Все категории</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            {/* Чекбокс доставки */}
-            <label className="flex items-center space-x-2">
+              Показать все продукты
+            </button>
+          </div>
+        )}
+
+        {/* Advanced Search Filter Notice */}
+        {(baseSearch || fullSearch) && recipeProductIds.length === 0 && (
+          <div className="mb-6 bg-blue-100 dark:bg-blue-900 p-4 rounded-lg text-center">
+            <p className="text-blue-700 dark:text-blue-300 font-medium">
+              Показаны все варианты продукта: <strong>{fullSearch || baseSearch}</strong> ({filteredProducts.length})
+            </p>
+            <button
+              onClick={clearAdvancedSearchFilter}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Показать все продукты
+            </button>
+          </div>
+        )}
+
+        {/* Regular Search Filter Notice - only show if not using advanced search */}
+        {searchTerm && !baseSearch && !fullSearch && getQueryParam("search") && recipeProductIds.length === 0 && (
+          <div className="mb-6 bg-blue-100 dark:bg-blue-900 p-4 rounded-lg text-center">
+            <p className="text-blue-700 dark:text-blue-300 font-medium">
+              Показаны результаты поиска для: <strong>{searchTerm}</strong> ({filteredProducts.length})
+            </p>
+            <button
+              onClick={clearSearchFilter}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Показать все продукты
+            </button>
+          </div>
+        )}
+
+        {/* Filters and Search - Only show if not filtering by recipe product */}
+        {recipeProductIds.length === 0 && (
+          <div className="mb-8 space-y-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Поле поиска */}
               <input
-                type="checkbox"
-                checked={deliveryFilter}
-                onChange={(e) => setDeliveryFilter(e.target.checked)}
-                className="form-checkbox"
+                type="text"
+                placeholder="Поиск по названию"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1 p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
               />
-              <span className="text-gray-700 dark:text-white">
-                Только с доставкой
-              </span>
-            </label>
-          </div>
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Минимальная цена */}
-            <input
-              type="number"
-              placeholder="Мин. цена"
-              value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
-            />
-            {/* Максимальная цена */}
-            <input
-              type="number"
-              placeholder="Макс. цена"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
-            />
-            {/* Минимальный рейтинг */}
-            <select
-              value={minRating}
-              onChange={(e) => setMinRating(parseInt(e.target.value))}
-              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
-            >
-              <option value="0">Любой рейтинг</option>
-              <option value="1">1+ звезда</option>
-              <option value="2">2+ звезды</option>
-              <option value="3">3+ звезды</option>
-              <option value="4">4+ звезды</option>
-              <option value="5">5 звезд</option>
-            </select>
-            {/* Сортировка */}
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
-            >
-              <option value="">Сортировка</option>
-              <option value="priceAsc">Цена: по возрастанию</option>
-              <option value="priceDesc">Цена: по убыванию</option>
-              <option value="ratingDesc">Рейтинг: по убыванию</option>
-              {userLocation && <option value="distanceAsc">Расстояние: ближайшие</option>}
-            </select>
-          </div>
-          
-          {/* Location filters */}
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* City filter */}
-            <select
-              value={cityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
-            >
-              <option value="">Все города</option>
-              {cities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
-            
-            {/* Distance filter */}
-            <div className="flex items-center gap-2">
+              {/* Выбор категории */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+              >
+                <option value="">Все категории</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              {/* Чекбокс доставки */}
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={deliveryFilter}
+                  onChange={(e) => setDeliveryFilter(e.target.checked)}
+                  className="form-checkbox"
+                />
+                <span className="text-gray-700 dark:text-white">
+                  Только с доставкой
+                </span>
+              </label>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Минимальная цена */}
               <input
                 type="number"
-                placeholder="Макс. расстояние (км)"
-                value={maxDistance}
-                onChange={(e) => setMaxDistance(e.target.value)}
-                disabled={!userLocation}
+                placeholder="Мин. цена"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
                 className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
               />
-              <button
-                onClick={getUserLocation}
-                disabled={loadingLocation}
-                className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              {/* Максимальная цена */}
+              <input
+                type="number"
+                placeholder="Макс. цена"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
+              />
+              {/* Минимальный рейтинг */}
+              <select
+                value={minRating}
+                onChange={(e) => setMinRating(parseInt(e.target.value))}
+                className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
               >
-                {loadingLocation ? "Определение..." : "Моё местоположение"}
-              </button>
-              
-              {/* Icon for manual location input */}
-              <button
-                onClick={() => setShowManualLocationInput(!showManualLocationInput)}
-                className={`p-2 text-lg rounded transition-colors ${
-                  showManualLocationInput 
-                  ? "bg-blue-500 text-white hover:bg-blue-600" 
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-                }`}
-                title="Указать местоположение вручную"
+                <option value="0">Любой рейтинг</option>
+                <option value="1">1+ звезда</option>
+                <option value="2">2+ звезды</option>
+                <option value="3">3+ звезды</option>
+                <option value="4">4+ звезды</option>
+                <option value="5">5 звезд</option>
+              </select>
+              {/* Сортировка */}
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
               >
-                📝
-              </button>
+                <option value="">Сортировка</option>
+                <option value="priceAsc">Цена: по возрастанию</option>
+                <option value="priceDesc">Цена: по убыванию</option>
+                <option value="ratingDesc">Рейтинг: по убыванию</option>
+                {userLocation && <option value="distanceAsc">Расстояние: ближайшие</option>}
+              </select>
             </div>
-          </div>
-          
-          {/* Location status with larger font */}
-          {userLocation && !locationError && (
-            <div className="mt-3 mb-2">
+            
+            {/* Location filters */}
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* City filter */}
+              <select
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+              >
+                <option value="">Все города</option>
+                {cities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Distance filter */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  <span className="text-blue-500 text-xl mr-1">📍</span>
-                  <span className="text-lg font-medium text-gray-800 dark:text-gray-200">
-                    Ваше местоположение: <span className="text-blue-600 dark:text-blue-400 font-semibold">{userCity || "Город не определен"}</span>
-                  </span>
-                </div>
-                {userLocation.isManual && (
-                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Вручную</span>
-                )}
-                {!userLocation.isManual && (
-                  <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Автоматически</span>
-                )}
-                <button 
-                  onClick={clearUserLocation}
-                  className="text-red-600 text-xs hover:underline"
+                <input
+                  type="number"
+                  placeholder="Макс. расстояние (км)"
+                  value={maxDistance}
+                  onChange={(e) => setMaxDistance(e.target.value)}
+                  disabled={!userLocation}
+                  className="p-2 border rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
+                />
+                <button
+                  onClick={getUserLocation}
+                  disabled={loadingLocation}
+                  className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                 >
-                  Сбросить
+                  {loadingLocation ? "Определение..." : "Моё местоположение"}
+                </button>
+                
+                {/* Icon for manual location input - Fix the emoji */}
+                <button
+                  onClick={() => setShowManualLocationInput(!showManualLocationInput)}
+                  className={`p-2 text-sm rounded transition-colors ${
+                    showManualLocationInput 
+                    ? "bg-blue-500 text-white hover:bg-blue-600" 
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                  title="Указать местоположение вручную"
+                >
+                  Вручную
                 </button>
               </div>
             </div>
-          )}
-          
-          {/* Error display */}
-          {locationError && (
-            <div className="text-red-500 text-sm mt-2">{locationError}</div>
-          )}
-          
-          {/* Manual location input (shown only when icon is clicked) */}
-          {showManualLocationInput && (
-            <div className="flex items-center gap-2 mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <input
-                type="text"
-                placeholder="Введите адрес (город, улица)"
-                value={manualLocationInput}
-                onChange={(e) => setManualLocationInput(e.target.value)}
-                className="flex-1 p-2 border rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
-              />
-              <button
-                onClick={setManualLocation}
-                disabled={isSettingManualLocation || !manualLocationInput.trim()}
-                className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:bg-gray-400"
-              >
-                {isSettingManualLocation ? "Установка..." : "Установить"}
-              </button>
-              <button
-                onClick={() => setShowManualLocationInput(false)}
-                className="p-2 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
-                title="Закрыть"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-        </div>
+            
+            {/* Location status with larger font */}
+            {userLocation && !locationError && (
+              <div className="mt-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center">
+                    <span className="text-blue-500 text-xl mr-1">📍</span>
+                    <span className="text-lg font-medium text-gray-800 dark:text-gray-200">
+                      Ваше местоположение: <span className="text-blue-600 dark:text-blue-400 font-semibold">{userCity || "Город не определен"}</span>
+                    </span>
+                  </div>
+                  {userLocation.isManual && (
+                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Вручную</span>
+                  )}
+                  {!userLocation.isManual && (
+                    <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Автоматически</span>
+                  )}
+                  <button 
+                    onClick={clearUserLocation}
+                    className="text-red-600 text-xs hover:underline"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Error display */}
+            {locationError && (
+              <div className="text-red-500 text-sm mt-2">{locationError}</div>
+            )}
+            
+            {/* Manual location input (shown only when icon is clicked) */}
+            {showManualLocationInput && (
+              <div className="flex items-center gap-2 mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <input
+                  type="text"
+                  placeholder="Введите адрес (город, улица)"
+                  value={manualLocationInput}
+                  onChange={(e) => setManualLocationInput(e.target.value)}
+                  className="flex-1 p-2 border rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600"
+                />
+                <button
+                  onClick={setManualLocation}
+                  disabled={isSettingManualLocation || !manualLocationInput.trim()}
+                  className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:bg-gray-400"
+                >
+                  {isSettingManualLocation ? "Установка..." : "Установить"}
+                </button>
+                <button
+                  onClick={() => setShowManualLocationInput(false)}
+                  className="p-2 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
+                  title="Закрыть"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-20">
