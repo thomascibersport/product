@@ -35,6 +35,7 @@ function Header() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
   const [hasMessages, setHasMessages] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation(); // Get current location
   const intervalRef = useRef(null);
@@ -189,91 +190,208 @@ function Header() {
   // Determine if user is a seller directly from user object
   const showSellerLinks = user && user.is_seller === true;
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <header className="bg-gray-800 text-white py-4 px-6 shadow-md">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold hover:text-gray-300">
-          Продукты
-        </Link>
+      <div className="container mx-auto">
+        <div className="flex justify-between items-center">
+          <Link to="/" className="text-2xl font-bold hover:text-gray-300">
+            Продукты
+          </Link>
 
-        {isAuthenticated && user?.is_staff ? (
-          <nav className="flex space-x-4">
-            <Link to="/admin" className="hover:text-gray-300">
-              Админ панель
-            </Link>
-          </nav>
-        ) : isAuthenticated ? (
-          <nav className="flex space-x-4">
-            <Link to="/orders" className="hover:text-gray-300">
-              Мои заказы
-            </Link>
-            <Link to="/cart" className="hover:text-gray-300">
-              Корзина
-            </Link>
-            {showSellerLinks && (
-              <>
-                <Link to="/my-products" className="hover:text-gray-300">
-                  Мои объявления
+          {/* Mobile menu button */}
+          <button
+            className="lg:hidden p-2 rounded-md hover:bg-gray-700 focus:outline-none"
+            onClick={toggleMobileMenu}
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              {isMobileMenuOpen ? (
+                <path d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+
+          {/* Desktop navigation */}
+          <div className="hidden lg:flex items-center space-x-4">
+            {isAuthenticated && user?.is_staff ? (
+              <nav className="flex space-x-4">
+                <Link to="/admin" className="hover:text-gray-300">
+                  Админ панель
                 </Link>
-                <Link to="/seller-orders" className="hover:text-gray-300">
-                  Заказы на мои товары
+              </nav>
+            ) : isAuthenticated ? (
+              <nav className="flex space-x-4">
+                <Link to="/orders" className="hover:text-gray-300">
+                  Мои заказы
                 </Link>
-                <Link to="/seller-statistics" className="hover:text-gray-300">
-                  Статистика
+                <Link to="/cart" className="hover:text-gray-300">
+                  Корзина
                 </Link>
-              </>
-            )}
-            {hasMessages && (
-              <Link to="/messages" className="hover:text-gray-300 relative">
-                Сообщения
-                {unreadCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
+                {showSellerLinks && (
+                  <>
+                    <Link to="/my-products" className="hover:text-gray-300">
+                      Мои объявления
+                    </Link>
+                    <Link to="/seller-orders" className="hover:text-gray-300">
+                      Заказы на мои товары
+                    </Link>
+                    <Link to="/seller-statistics" className="hover:text-gray-300">
+                      Статистика
+                    </Link>
+                  </>
                 )}
-              </Link>
-            )}
-            <Link
-              to="/assistant"
-              className="text-white hover:text-gray-300"
-            >
-              ИИ Помощник
-            </Link>
-          </nav>
-        ) : null}
+                {hasMessages && (
+                  <Link to="/messages" className="hover:text-gray-300 relative">
+                    Сообщения
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
+                <Link to="/assistant" className="text-white hover:text-gray-300">
+                  ИИ Помощник
+                </Link>
+              </nav>
+            ) : null}
+          </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2 text-white hover:bg-gray-700"
-            >
-              <img
-                src={user?.avatar || "/media/default-avatar.png"}
-                alt="avatar"
-                className="w-10 h-10 rounded-full object-cover"
-              />
-              <span>{user?.username || "Гость"}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-white text-black shadow-lg rounded-lg mt-2">
-            {isAuthenticated && !user?.is_staff && (
-              <DropdownMenuItem onClick={handleProfileSettings}>
-                Настройки профиля
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={handleThemeChange}>
-              {isDarkMode ? "Светлая тема" : "Тёмная тема"}
-            </DropdownMenuItem>
-            {isAuthenticated ? (
-              <DropdownMenuItem onClick={handleLogout}>Выйти</DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => navigate("/login")}>
-                Войти
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {/* User profile dropdown - always visible */}
+          <div className="hidden lg:block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 text-white hover:bg-gray-700"
+                >
+                  <img
+                    src={user?.avatar || "/media/default-avatar.png"}
+                    alt="avatar"
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <span>{user?.username || "Гость"}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-white text-black shadow-lg rounded-lg mt-2">
+                {isAuthenticated && !user?.is_staff && (
+                  <DropdownMenuItem onClick={handleProfileSettings}>
+                    Настройки профиля
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleThemeChange}>
+                  {isDarkMode ? "Светлая тема" : "Тёмная тема"}
+                </DropdownMenuItem>
+                {isAuthenticated ? (
+                  <DropdownMenuItem onClick={handleLogout}>Выйти</DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => navigate("/login")}>
+                    Войти
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden mt-4 pb-4">
+            <nav className="flex flex-col space-y-4">
+              {isAuthenticated && user?.is_staff ? (
+                <Link to="/admin" className="hover:text-gray-300">
+                  Админ панель
+                </Link>
+              ) : isAuthenticated ? (
+                <>
+                  <Link to="/orders" className="hover:text-gray-300">
+                    Мои заказы
+                  </Link>
+                  <Link to="/cart" className="hover:text-gray-300">
+                    Корзина
+                  </Link>
+                  {showSellerLinks && (
+                    <>
+                      <Link to="/my-products" className="hover:text-gray-300">
+                        Мои объявления
+                      </Link>
+                      <Link to="/seller-orders" className="hover:text-gray-300">
+                        Заказы на мои товары
+                      </Link>
+                      <Link to="/seller-statistics" className="hover:text-gray-300">
+                        Статистика
+                      </Link>
+                    </>
+                  )}
+                  {hasMessages && (
+                    <Link to="/messages" className="hover:text-gray-300 relative">
+                      Сообщения
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  )}
+                  <Link to="/assistant" className="text-white hover:text-gray-300">
+                    ИИ Помощник
+                  </Link>
+                </>
+              ) : null}
+
+              {/* Mobile user menu */}
+              <div className="pt-4 border-t border-gray-700">
+                {isAuthenticated && !user?.is_staff && (
+                  <button
+                    onClick={handleProfileSettings}
+                    className="block w-full text-left hover:text-gray-300 py-2"
+                  >
+                    Настройки профиля
+                  </button>
+                )}
+                <button
+                  onClick={handleThemeChange}
+                  className="block w-full text-left hover:text-gray-300 py-2"
+                >
+                  {isDarkMode ? "Светлая тема" : "Тёмная тема"}
+                </button>
+                {isAuthenticated ? (
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left hover:text-gray-300 py-2"
+                  >
+                    Выйти
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="block w-full text-left hover:text-gray-300 py-2"
+                  >
+                    Войти
+                  </button>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );

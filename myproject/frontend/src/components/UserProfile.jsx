@@ -25,24 +25,26 @@ const customModalStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'auto'
+    overflow: 'auto',
+    padding: '20px'
   },
   content: {
-    position: 'relative',
-    top: 'auto',
-    left: 'auto',
-    right: 'auto',
-    bottom: 'auto',
-    margin: '2rem auto',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    margin: 0,
     border: 'none',
     background: 'transparent',
     padding: 0,
     maxWidth: '32rem',
-    width: '100%'
+    width: '100%',
+    maxHeight: '90vh',
+    overflowY: 'auto'
   }
 };
 
-const UserProfile = () => {
+const UserProfile = ({ modalOpen, reviewModalOpen }) => {
   const { id } = useParams();
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
@@ -61,16 +63,16 @@ const UserProfile = () => {
 
   // Handle body scrolling when modals are open
   useEffect(() => {
-    if (isModalOpen || isReviewModalOpen) {
+    if (modalOpen || reviewModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-    
+
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [isModalOpen, isReviewModalOpen]);
+  }, [modalOpen, reviewModalOpen]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -253,8 +255,8 @@ const UserProfile = () => {
         <div className="text-red-500 text-5xl mb-4">⚠️</div>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Произошла ошибка</h2>
         <p className="text-red-500 dark:text-red-400">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
         >
           Попробовать снова
@@ -269,8 +271,8 @@ const UserProfile = () => {
         <div className="text-gray-400 text-5xl mb-4">👤</div>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Пользователь не найден</h2>
         <p className="text-gray-600 dark:text-gray-400">Пользователь с указанным идентификатором не существует или был удален.</p>
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-block mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
         >
           Вернуться на главную
@@ -282,7 +284,7 @@ const UserProfile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Профиль пользователя */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden mb-8">
@@ -302,7 +304,7 @@ const UserProfile = () => {
               )}
             </div>
           </div>
-          
+
           {/* Информация о пользователе */}
           <div className="pt-20 px-8 pb-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -330,10 +332,9 @@ const UserProfile = () => {
                     <FaShoppingBag className="mr-1 text-green-500 dark:text-green-400" />
                     <span>{user.successful_deals || 0} успешных сделок</span>
                   </div>
-
                 </div>
               </div>
-              
+
               {token && parseInt(id) !== currentUser?.id && (
                 <div className="mt-4 md:mt-0 flex space-x-3">
                   <button
@@ -353,7 +354,7 @@ const UserProfile = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
                 <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Контактная информация</h3>
@@ -370,21 +371,21 @@ const UserProfile = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                 <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">О пользователе</h3>
                 {user.bio ? (
                   <p className="text-gray-800 dark:text-gray-200">{user.bio}</p>
                 ) : (
                   <p className="text-gray-800 dark:text-gray-200">
-                    {user.successful_deals > 10 
-                      ? `Опытный продавец с ${user.successful_deals} успешными сделками` 
-                      : user.successful_deals > 0 
+                    {user.successful_deals > 10
+                      ? `Опытный продавец с ${user.successful_deals} успешными сделками`
+                      : user.successful_deals > 0
                         ? `Начинающий продавец с ${user.successful_deals} успешными сделками`
                         : "Новый пользователь на платформе"}
                   </p>
                 )}
-                
+
                 {/* Display user media files as attachments to bio */}
                 {user.media && user.media.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -433,33 +434,31 @@ const UserProfile = () => {
                 )}
               </div>
             </div>
-            
+
             {/* Вкладки */}
             <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
               <div className="flex space-x-8">
                 <button
-                  className={`pb-3 px-1 ${
-                    activeTab === "products"
+                  className={`pb-3 px-1 ${activeTab === "products"
                       ? "border-b-2 border-blue-500 font-medium text-blue-500 dark:text-blue-400"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
+                    }`}
                   onClick={() => setActiveTab("products")}
                 >
                   Товары
                 </button>
                 <button
-                  className={`pb-3 px-1 ${
-                    activeTab === "reviews"
+                  className={`pb-3 px-1 ${activeTab === "reviews"
                       ? "border-b-2 border-blue-500 font-medium text-blue-500 dark:text-blue-400"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
+                    }`}
                   onClick={() => setActiveTab("reviews")}
                 >
                   Отзывы {reviews.length > 0 && `(${reviews.length})`}
                 </button>
               </div>
             </div>
-            
+
             {/* Содержимое активной вкладки */}
             {activeTab === "products" ? (
               <>
@@ -577,10 +576,8 @@ const UserProfile = () => {
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
         style={customModalStyles}
-        className="outline-none"
-        overlayClassName="fixed inset-0 flex justify-center items-center"
       >
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Отправить сообщение</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Для {user?.first_name} {user?.last_name}
@@ -588,7 +585,7 @@ const UserProfile = () => {
           <form onSubmit={handleSendMessage}>
             <textarea
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={e => setMessage(e.target.value)}
               className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg mb-4 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows="5"
               placeholder="Введите ваше сообщение..."
@@ -618,10 +615,8 @@ const UserProfile = () => {
         isOpen={isReviewModalOpen}
         onRequestClose={() => setIsReviewModalOpen(false)}
         style={customModalStyles}
-        className="outline-none"
-        overlayClassName="fixed inset-0 flex justify-center items-center"
       >
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Оставить отзыв</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Для {user?.first_name} {user?.last_name}
@@ -641,10 +636,10 @@ const UserProfile = () => {
               </label>
               <textarea
                 value={reviewContent}
-                onChange={(e) => setReviewContent(e.target.value)}
+                onChange={e => setReviewContent(e.target.value)}
                 className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows="4"
-                placeholder="Расскажите о вашем опыте сотрудничества с этим пользователем..."
+                placeholder="Расскажите о вашем опыте сотрудничества..."
                 required
               />
             </div>
@@ -667,7 +662,7 @@ const UserProfile = () => {
           </form>
         </div>
       </Modal>
-      
+
       <ToastContainer />
     </div>
   );

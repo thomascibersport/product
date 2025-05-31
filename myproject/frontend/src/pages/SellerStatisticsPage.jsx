@@ -38,7 +38,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import ruLocale from 'date-fns/locale/ru';
 import { subDays } from 'date-fns';
-import { useTheme } from '@mui/material/styles'; 
+import { useTheme } from '@mui/material/styles';
 
 Chart.register(
   CategoryScale,
@@ -72,51 +72,51 @@ const SellerDashboard = () => {
 
   const fetchStats = useCallback(async () => {
     if (!token || !user) return;
-    
+
     const formatDate = (date) => {
       if (!date) {
         return null;
       }
-      
+
       const d = new Date(date);
       if (isNaN(d.getTime())) {
         console.error('Invalid date object in formatDate:', date);
         return null;
       }
-      
+
       let month = '' + (d.getMonth() + 1);
       let day = '' + d.getDate();
       const year = d.getFullYear();
-      
+
       if (month.length < 2) month = '0' + month;
       if (day.length < 2) day = '0' + day;
-      
+
       return [year, month, day].join('-');
     };
-    
+
     console.log('Fetching stats for dates:', startDate, endDate);
     try {
       const formattedStartDate = formatDate(startDate);
       const formattedEndDate = formatDate(endDate);
-      
+
       // Prepare params object - only include dates if they are set
       const params = {
         // If both dates are null, API will return all-time stats
       };
-      
+
       if (formattedStartDate) {
         params.start_date = formattedStartDate;
       }
-      
+
       if (formattedEndDate) {
         params.end_date = formattedEndDate;
       }
-      
+
       const response = await axios.get("/api/seller-statistics/", {
         headers: { Authorization: `Bearer ${token}` },
         params: params,
       });
-      
+
       console.log('API response:', response.data);
       setStats(response.data);
     } catch (error) {
@@ -240,85 +240,130 @@ const SellerDashboard = () => {
     ],
   };
 
-
-
   // Определяем стили для DatePicker
   const datePickerSx = {
-    bgcolor: theme.palette.mode === 'dark' ? '#ffffff' : 'inherit',
-    borderRadius: 1,
     '& .MuiInputBase-root': {
-      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff' : 'inherit',
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#f5f5f5',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+      '&:hover': {
+        backgroundColor: theme.palette.mode === 'dark' ? '#f0f0f0 !important' : '#eeeeee',
+      },
     },
     '& .MuiInputLabel-root': {
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
     },
     '& .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.23)' : 'rgba(0, 0, 0, 0.23)',
+      borderColor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.23) !important' : 'rgba(0, 0, 0, 0.23)',
     },
     '& .MuiSvgIcon-root': {
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
     },
     '& .MuiPickersDay-root': {
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+    },
+    '& .MuiInputBase-input': {
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
     },
   };
 
   // Define input styles for dark mode
   const inputSx = {
-    bgcolor: theme.palette.mode === 'dark' ? '#ffffff' : 'inherit',
-    borderRadius: 1,
-    marginBottom: 2,
     '& .MuiInputBase-root': {
-      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff' : 'inherit',
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#f5f5f5',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+      '&:hover': {
+        backgroundColor: theme.palette.mode === 'dark' ? '#f0f0f0 !important' : '#eeeeee',
+      },
     },
     '& .MuiInputLabel-root': {
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
     },
     '& .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.23)' : 'rgba(0, 0, 0, 0.23)',
+      borderColor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.23) !important' : 'rgba(0, 0, 0, 0.23)',
     },
     '& .MuiSelect-icon': {
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
     },
     '& .MuiMenuItem-root': {
-      color: theme.palette.mode === 'dark' ? '#000000' : 'inherit',
-    }
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#ffffff',
+      '&:hover': {
+        backgroundColor: theme.palette.mode === 'dark' ? '#f0f0f0 !important' : '#f5f5f5',
+      },
+    },
+    '& .MuiSelect-select': {
+      backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#f5f5f5',
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+    },
+    '& .MuiInputBase-input': {
+      color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+    },
+  };
+
+  // Define menu props for consistent styling
+  const menuProps = {
+    PaperProps: {
+      sx: {
+        backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#ffffff',
+        '& .MuiMenuItem-root': {
+          color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+          backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#ffffff',
+          '&:hover': {
+            backgroundColor: theme.palette.mode === 'dark' ? '#f0f0f0 !important' : '#f5f5f5',
+          },
+        },
+      },
+    },
+  };
+
+  // Добавляем стили для TextField компонентов
+  const textFieldProps = {
+    sx: inputSx,
+    InputProps: {
+      sx: {
+        backgroundColor: theme.palette.mode === 'dark' ? '#ffffff !important' : '#f5f5f5',
+        color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+      },
+    },
+    InputLabelProps: {
+      sx: {
+        color: theme.palette.mode === 'dark' ? '#000000 !important' : '#000000',
+      },
+    },
   };
 
   // Filter customers based on all filters
   const filteredCustomers = stats?.customer_purchases
     ? stats.customer_purchases.filter(
-        (purchase) => {
-          // Text search filter
-          const nameMatch = 
-            purchase.first_name.toLowerCase().includes(customerFilter.toLowerCase()) ||
-            purchase.last_name.toLowerCase().includes(customerFilter.toLowerCase()) ||
-            purchase.email.toLowerCase().includes(customerFilter.toLowerCase());
-          
-          // Status filter
-          const statusMatch = statusFilter === 'all' || purchase.status === statusFilter;
-          
-          // Payment method filter
-          const paymentMatch = paymentFilter === 'all' || purchase.payment_method === paymentFilter;
-          
-          // Delivery type filter
-          const deliveryMatch = deliveryFilter === 'all' || purchase.delivery_type === deliveryFilter;
-          
-          // Price range filter
-          const minPriceMatch = minPrice === "" || purchase.total_spent >= parseFloat(minPrice);
-          const maxPriceMatch = maxPrice === "" || purchase.total_spent <= parseFloat(maxPrice);
-          
-          // Order date filter - specific for customer table
-          let orderDate = new Date(purchase.order_date);
-          const startDateMatch = !customerStartDate || orderDate >= new Date(customerStartDate);
-          const endDateMatch = !customerEndDate || orderDate <= new Date(customerEndDate);
-          
-          return nameMatch && statusMatch && paymentMatch && deliveryMatch && 
-                 minPriceMatch && maxPriceMatch && startDateMatch && endDateMatch;
-        }
-      )
+      (purchase) => {
+        // Text search filter
+        const nameMatch =
+          purchase.first_name.toLowerCase().includes(customerFilter.toLowerCase()) ||
+          purchase.last_name.toLowerCase().includes(customerFilter.toLowerCase()) ||
+          purchase.email.toLowerCase().includes(customerFilter.toLowerCase());
+
+        // Status filter
+        const statusMatch = statusFilter === 'all' || purchase.status === statusFilter;
+
+        // Payment method filter
+        const paymentMatch = paymentFilter === 'all' || purchase.payment_method === paymentFilter;
+
+        // Delivery type filter
+        const deliveryMatch = deliveryFilter === 'all' || purchase.delivery_type === deliveryFilter;
+
+        // Price range filter
+        const minPriceMatch = minPrice === "" || purchase.total_spent >= parseFloat(minPrice);
+        const maxPriceMatch = maxPrice === "" || purchase.total_spent <= parseFloat(maxPrice);
+
+        // Order date filter - specific for customer table
+        let orderDate = new Date(purchase.order_date);
+        const startDateMatch = !customerStartDate || orderDate >= new Date(customerStartDate);
+        const endDateMatch = !customerEndDate || orderDate <= new Date(customerEndDate);
+
+        return nameMatch && statusMatch && paymentMatch && deliveryMatch &&
+          minPriceMatch && maxPriceMatch && startDateMatch && endDateMatch;
+      }
+    )
     : [];
 
   return (
@@ -341,7 +386,7 @@ const SellerDashboard = () => {
         >
           📊 Статистика продавца
         </Typography>
-        
+
         {/* Date Filter Section - For overall statistics */}
         <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg mb-6">
           <Typography
@@ -360,6 +405,7 @@ const SellerDashboard = () => {
                   sx={datePickerSx}
                   slotProps={{
                     textField: {
+                      ...textFieldProps,
                       placeholder: "Выберите дату",
                       InputLabelProps: { shrink: true }
                     }
@@ -374,6 +420,7 @@ const SellerDashboard = () => {
                   sx={datePickerSx}
                   slotProps={{
                     textField: {
+                      ...textFieldProps,
                       placeholder: "Выберите дату",
                       InputLabelProps: { shrink: true }
                     }
@@ -383,183 +430,171 @@ const SellerDashboard = () => {
             </Grid>
           </LocalizationProvider>
         </Paper>
-        
+
         {/* Customers Table - Moved to top */}
         <Paper className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg mb-6">
-          <Typography
-            variant="h6"
-            className="text-gray-800 dark:text-white mb-4"
-          >
+          <Typography variant="h6" className="text-gray-800 dark:text-white mb-4">
             Покупатели и их покупки
           </Typography>
-          
-          {/* Note about canceled orders */}
-          <Typography
-            variant="body2"
-            className="text-orange-600 dark:text-orange-400 mb-4"
-          >
-            Примечание: В данной таблице показаны все заказы, включая отмененные.
-          </Typography>
-          
-          {/* Enhanced Filter Section */}
+
+          {/* Фильтры */}
           <Grid container spacing={2} className="mb-4">
-            {/* Customer search filter */}
+            {/* Поиск покупателя */}
             <Grid item xs={12} md={6} lg={3}>
-              <TextField
-                label="Поиск покупателя"
-                variant="outlined"
-                fullWidth
-                value={customerFilter}
-                onChange={(e) => setCustomerFilter(e.target.value)}
-                sx={inputSx}
-              />
-            </Grid>
-            
-            {/* Status filter */}
-            <Grid item xs={12} md={6} lg={3}>
-              <TextField
-                select
-                label="Статус заказа"
-                variant="outlined"
-                fullWidth
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                sx={inputSx}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      bgcolor: 'white',
-                    }
-                  }
-                }}
-              >
-                <MenuItem value="all">Все статусы</MenuItem>
-                <MenuItem value="processing">В обработке</MenuItem>
-                <MenuItem value="confirmed">Подтвержден</MenuItem>
-                <MenuItem value="shipped">Отправлен</MenuItem>
-                <MenuItem value="in_transit">В пути</MenuItem>
-                <MenuItem value="delivered">Доставлен</MenuItem>
-                <MenuItem value="canceled">Отменен</MenuItem>
-              </TextField>
-            </Grid>
-            
-            {/* Payment method filter */}
-            <Grid item xs={12} md={6} lg={3}>
-              <TextField
-                select
-                label="Способ оплаты"
-                variant="outlined"
-                fullWidth
-                value={paymentFilter}
-                onChange={(e) => setPaymentFilter(e.target.value)}
-                sx={inputSx}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      bgcolor: 'white',
-                    }
-                  }
-                }}
-              >
-                <MenuItem value="all">Все способы</MenuItem>
-                <MenuItem value="card">Картой</MenuItem>
-                <MenuItem value="cash">Наличные</MenuItem>
-              </TextField>
-            </Grid>
-            
-            {/* Delivery type filter */}
-            <Grid item xs={12} md={6} lg={3}>
-              <TextField
-                select
-                label="Способ доставки"
-                variant="outlined"
-                fullWidth
-                value={deliveryFilter}
-                onChange={(e) => setDeliveryFilter(e.target.value)}
-                sx={inputSx}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      bgcolor: 'white',
-                    }
-                  }
-                }}
-              >
-                <MenuItem value="all">Все способы</MenuItem>
-                <MenuItem value="delivery">Доставка</MenuItem>
-                <MenuItem value="pickup">Самовывоз</MenuItem>
-              </TextField>
-            </Grid>
-            
-            {/* Price range filters */}
-            <Grid item xs={12} md={6} lg={3}>
-              <TextField
-                label="Мин. сумма (₽)"
-                variant="outlined"
-                type="number"
-                fullWidth
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                inputProps={{ min: 0, step: "100" }}
-                sx={inputSx}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6} lg={3}>
-              <TextField
-                label="Макс. сумма (₽)"
-                variant="outlined"
-                type="number"
-                fullWidth
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                inputProps={{ min: 0, step: "100" }}
-                sx={inputSx}
-              />
-            </Grid>
-            
-            {/* Customer-specific date filters */}
-            <Grid item xs={12} md={6} lg={3}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ruLocale}>
-                <DatePicker
-                  label="Дата заказа от"
-                  value={customerStartDate}
-                  onChange={(newValue) => setCustomerStartDate(newValue)}
-                  sx={datePickerSx}
-                  slotProps={{
-                    textField: {
-                      placeholder: "Выберите дату",
-                      InputLabelProps: { shrink: true },
-                      fullWidth: true
-                    }
-                  }}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customerFilter}
+                  onChange={(e) => setCustomerFilter(e.target.value)}
+                  placeholder="Поиск покупателя"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500
+                           placeholder-gray-500 dark:placeholder-gray-400"
                 />
-              </LocalizationProvider>
+              </div>
             </Grid>
-            
+
+            {/* Статус заказа */}
             <Grid item xs={12} md={6} lg={3}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ruLocale}>
-                <DatePicker
-                  label="Дата заказа до"
-                  value={customerEndDate}
-                  onChange={(newValue) => setCustomerEndDate(newValue)}
-                  sx={datePickerSx}
-                  slotProps={{
-                    textField: {
-                      placeholder: "Выберите дату",
-                      InputLabelProps: { shrink: true },
-                      fullWidth: true
-                    }
-                  }}
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500
+                           appearance-none"
+                >
+                  <option value="all">Все статусы</option>
+                  <option value="processing">В обработке</option>
+                  <option value="confirmed">Подтвержден</option>
+                  <option value="shipped">Отправлен</option>
+                  <option value="in_transit">В пути</option>
+                  <option value="delivered">Доставлен</option>
+                  <option value="canceled">Отменен</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </Grid>
+
+            {/* Способ оплаты */}
+            <Grid item xs={12} md={6} lg={3}>
+              <div className="relative">
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500
+                           appearance-none"
+                >
+                  <option value="all">Все способы</option>
+                  <option value="card">Картой</option>
+                  <option value="cash">Наличные</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </Grid>
+
+            {/* Способ доставки */}
+            <Grid item xs={12} md={6} lg={3}>
+              <div className="relative">
+                <select
+                  value={deliveryFilter}
+                  onChange={(e) => setDeliveryFilter(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500
+                           appearance-none"
+                >
+                  <option value="all">Все способы</option>
+                  <option value="delivery">Доставка</option>
+                  <option value="pickup">Самовывоз</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </Grid>
+
+            {/* Минимальная сумма */}
+            <Grid item xs={12} md={6} lg={3}>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  placeholder="Мин. сумма (₽)"
+                  min="0"
+                  step="100"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500
+                           placeholder-gray-500 dark:placeholder-gray-400"
                 />
-              </LocalizationProvider>
+              </div>
+            </Grid>
+
+            {/* Максимальная сумма */}
+            <Grid item xs={12} md={6} lg={3}>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  placeholder="Макс. сумма (₽)"
+                  min="0"
+                  step="100"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500
+                           placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
+            </Grid>
+
+            {/* Дата заказа от */}
+            <Grid item xs={12} md={6} lg={3}>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={customerStartDate ? new Date(customerStartDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setCustomerStartDate(e.target.value ? new Date(e.target.value) : null)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </Grid>
+
+            {/* Дата заказа до */}
+            <Grid item xs={12} md={6} lg={3}>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={customerEndDate ? new Date(customerEndDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setCustomerEndDate(e.target.value ? new Date(e.target.value) : null)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-white dark:bg-white text-gray-900 dark:text-gray-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </Grid>
           </Grid>
-          
-          {/* Reset filters button */}
-          <Button 
-            variant="outlined" 
-            className="mb-4"
+
+          {/* Кнопка "Сбросить фильтры" */}
+          <button
             onClick={() => {
               setCustomerFilter("");
               setStatusFilter("all");
@@ -570,27 +605,22 @@ const SellerDashboard = () => {
               setCustomerStartDate(null);
               setCustomerEndDate(null);
             }}
-            sx={{
-              backgroundColor: theme.palette.mode === 'dark' ? '#ffffff' : null,
-              color: theme.palette.mode === 'dark' ? '#000000' : 'primary',
-              borderColor: theme.palette.mode === 'dark' ? '#666666' : null,
-              '&:hover': {
-                backgroundColor: theme.palette.mode === 'dark' ? '#eeeeee' : null,
-                borderColor: theme.palette.mode === 'dark' ? '#444444' : null,
-              }
-            }}
+            className="px-4 py-2 mb-4 text-sm font-medium text-gray-700 dark:text-gray-200 
+                     bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 
+                     rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 
+                     focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Сбросить фильтры
-          </Button>
-          
+          </button>
+
           {/* Display number of results */}
           {filteredCustomers.length > 0 && (
             <Typography className="mb-2 text-gray-600 dark:text-gray-300">
               Найдено записей: {filteredCustomers.length}
             </Typography>
           )}
-          
-          <TableContainer 
+
+          <TableContainer
             sx={{
               maxHeight: filteredCustomers.length > 10 ? '600px' : 'auto',
               overflow: 'auto',
@@ -614,9 +644,9 @@ const SellerDashboard = () => {
             <Table className="bg-white dark:bg-gray-800" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -625,9 +655,9 @@ const SellerDashboard = () => {
                   >
                     Покупатель
                   </TableCell>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -636,9 +666,9 @@ const SellerDashboard = () => {
                   >
                     Дата заказа
                   </TableCell>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -647,9 +677,9 @@ const SellerDashboard = () => {
                   >
                     Тип оплаты
                   </TableCell>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -658,9 +688,9 @@ const SellerDashboard = () => {
                   >
                     Тип доставки
                   </TableCell>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -669,9 +699,9 @@ const SellerDashboard = () => {
                   >
                     Сумма
                   </TableCell>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -680,9 +710,9 @@ const SellerDashboard = () => {
                   >
                     Товары
                   </TableCell>
-                  <TableCell 
+                  <TableCell
                     className="text-white bg-gray-100 dark:bg-gray-900"
-                    sx={{ 
+                    sx={{
                       backgroundColor: theme.palette.mode === 'dark' ? '#121212 !important' : '#f5f5f5 !important',
                       fontWeight: 'bold',
                       border: theme.palette.mode === 'dark' ? '1px solid #333' : '1px solid #ddd',
@@ -733,7 +763,7 @@ const SellerDashboard = () => {
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-gray-600 dark:text-gray-300">
                       {customerFilter || statusFilter !== "all" || paymentFilter !== "all" || deliveryFilter !== "all" || minPrice || maxPrice || customerStartDate || customerEndDate
-                        ? "Нет заказов, соответствующих фильтрам" 
+                        ? "Нет заказов, соответствующих фильтрам"
                         : "Нет данных о покупателях"}
                     </TableCell>
                   </TableRow>
@@ -742,7 +772,7 @@ const SellerDashboard = () => {
             </Table>
           </TableContainer>
         </Paper>
-        
+
         {/* Stats Summary Section */}
         <Grid container spacing={3} className="mb-8">
           {[
@@ -795,7 +825,7 @@ const SellerDashboard = () => {
             </Grid>
           ))}
         </Grid>
-        
+
         {/* Stats Charts Section */}
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>

@@ -36,6 +36,7 @@ const OrdersPage = () => {
   const [ordersPerPage] = useState(10);
   const [totalSum, setTotalSum] = useState(0);
   const [topSellers, setTopSellers] = useState([]);
+  const [dateSort, setDateSort] = useState("newest");
   const navigate = useNavigate();
 
   const waveAnimation = `
@@ -132,6 +133,12 @@ const OrdersPage = () => {
       );
     }
 
+    filtered.sort((a, b) => {
+      const dateA = moment(a.created_at);
+      const dateB = moment(b.created_at);
+      return dateSort === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
     setFilteredOrders(filtered);
     setCurrentPage(1);
   }, [
@@ -142,6 +149,7 @@ const OrdersPage = () => {
     minAmount,
     maxAmount,
     orders,
+    dateSort,
   ]);
 
   useEffect(() => {
@@ -397,6 +405,14 @@ const OrdersPage = () => {
               onChange={(e) => setMaxAmount(e.target.value)}
               className="p-2 border rounded"
             />
+            <select
+              value={dateSort}
+              onChange={(e) => setDateSort(e.target.value)}
+              className="p-2 border rounded"
+            >
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+            </select>
           </div>
         </div>
         {filteredOrders.length === 0 ? (

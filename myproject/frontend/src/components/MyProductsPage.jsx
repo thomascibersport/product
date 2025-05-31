@@ -169,9 +169,41 @@ const AddProductModal = React.memo(
 
     if (!isOpen) return null;
 
+    const customModalStyles = {
+      overlay: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(5px)',
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'auto',
+        padding: '20px'
+      },
+      content: {
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        margin: 0,
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        maxWidth: '32rem',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto'
+      }
+    };
+
     return (
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex  justify-center p-4 z-50 animate-fade-in overflow-y-auto"
         onClick={handleOverlayClick}
         style={{ minHeight: '100vh' }}
       >

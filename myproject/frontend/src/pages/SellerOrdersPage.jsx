@@ -27,6 +27,7 @@ const SellerOrdersPage = () => {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(10); // Заказов на странице
+  const [dateSort, setDateSort] = useState("newest");
 
   const waveAnimation = `
     @keyframes wave-group {
@@ -126,6 +127,13 @@ const SellerOrdersPage = () => {
       );
     }
 
+    // Add sorting logic
+    filtered.sort((a, b) => {
+      const dateA = moment(a.created_at);
+      const dateB = moment(b.created_at);
+      return dateSort === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
     setFilteredOrders(filtered);
     setCurrentPage(1);
   }, [
@@ -136,6 +144,7 @@ const SellerOrdersPage = () => {
     minAmount,
     maxAmount,
     orders,
+    dateSort,
   ]);
 
   // Подтверждение заказа
@@ -183,7 +192,7 @@ const SellerOrdersPage = () => {
       setShowCancelForm(null);
       setCancelReason("");
       toast.success("Заказ успешно отменен");
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       toast.error("Ошибка при отмене заказа");
       console.error("Ошибка:", error);
@@ -220,7 +229,7 @@ const SellerOrdersPage = () => {
         draggable: false,
       }
     );
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Форматирование даты
@@ -316,6 +325,14 @@ const SellerOrdersPage = () => {
               onChange={(e) => setMaxAmount(e.target.value)}
               className="p-2 border rounded"
             />
+            <select
+              value={dateSort}
+              onChange={(e) => setDateSort(e.target.value)}
+              className="p-2 border rounded"
+            >
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+            </select>
           </div>
         </div>
 

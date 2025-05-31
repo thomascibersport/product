@@ -4,7 +4,6 @@
 
 /* Fix for white flash between page transitions */
 html, body, #root {
-  height: 100%;
   margin: 0;
   background: linear-gradient(to bottom right, #f9fafb, #e5eeff);
 }
