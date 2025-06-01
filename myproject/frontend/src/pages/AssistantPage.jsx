@@ -56,13 +56,12 @@ const AssistantPage = () => {
           }
         }
       } else {
-        // No token - user is not logged in.
-        // Chats will be disabled as currentUserId will remain null.
+
         setCurrentUserId(null); 
       }
     };
     fetchUser();
-  }, []); // Fetch user on component mount
+  }, []); 
 
   // Функция для прокрутки чата вниз
   const scrollToBottom = () => {
