@@ -182,38 +182,34 @@ const AddProductModal = React.memo(
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'auto',
+        overflow: 'hidden',
         padding: '20px'
       },
       content: {
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        margin: 0,
+        position: 'relative',
+        margin: 'auto',
         border: 'none',
         background: 'transparent',
         padding: 0,
         maxWidth: '32rem',
         width: '100%',
         maxHeight: '90vh',
-        overflowY: 'auto'
+        overflow: 'hidden'
       }
     };
 
     return (
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex  justify-center p-4 z-50 animate-fade-in overflow-y-auto"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center p-4 z-50 animate-fade-in"
         onClick={handleOverlayClick}
-        style={{ minHeight: '100vh' }}
       >
         <div
           ref={modalRef}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full my-8"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full my-8 flex flex-col"
           style={{ maxHeight: 'calc(100vh - 4rem)' }}
         >
-          <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
-            <div className="flex justify-between items-center">
+          <div className="p-6 flex-1 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
                 {isEditing
                   ? "✏️ Редактировать продукт"
@@ -530,12 +526,14 @@ const AddProductModal = React.memo(
                   указанному адресу
                 </p>
               )}
-              <button
-                type="submit"
-                className="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all transform hover:scale-[1.02] shadow-lg"
-              >
-                {isEditing ? "💾 Сохранить изменения" : "➕ Добавить продукт"}
-              </button>
+              <div className="sticky bottom-0 pt-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all transform hover:scale-[1.02] shadow-lg"
+                >
+                  {isEditing ? "💾 Сохранить изменения" : "➕ Добавить продукт"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

@@ -278,6 +278,57 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(order)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def update_status(self, request, pk=None):
+        order = get_object_or_404(Order, pk=pk)
+        seller = request.user
+        new_status = request.data.get("status")
+
+        # Проверяем, является ли пользователь продавцом заказа
+        if not order.items.filter(product__farmer=seller).exists():
+            return Response(
+                {"error": "Вы не можете изменить статус этого заказа"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Проверяем валидность нового статуса
+        valid_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {"error": "Недопустимый статус заказа"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Проверяем возможность изменения статуса
+        if order.status == "canceled":
+            return Response(
+                {"error": "Нельзя изменить статус отмененного заказа"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if order.status == "delivered":
+            return Response(
+                {"error": "Нельзя изменить статус доставленного заказа"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Проверяем последовательность статусов
+        status_sequence = ["processing", "confirmed", "shipped", "in_transit", "delivered"]
+        current_index = status_sequence.index(order.status) if order.status in status_sequence else -1
+        new_index = status_sequence.index(new_status) if new_status in status_sequence else -1
+
+        if new_index <= current_index:
+            return Response(
+                {"error": "Невозможно вернуться к предыдущему статусу"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Обновляем статус
+        order.status = new_status
+        order.save()
+        serializer = self.get_serializer(order)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         serializer.save()
 

@@ -29,6 +29,53 @@ const SellerOrdersPage = () => {
   const [ordersPerPage] = useState(10); // Заказов на странице
   const [dateSort, setDateSort] = useState("newest");
 
+  // Функция для получения возможных следующих статусов
+  const getPossibleNextStatuses = (currentStatus) => {
+    const statusSequence = ["processing", "confirmed", "shipped", "in_transit", "delivered"];
+    const currentIndex = statusSequence.indexOf(currentStatus);
+    if (currentIndex === -1 || currentIndex === statusSequence.length - 1) {
+      return [];
+    }
+    return statusSequence.slice(currentIndex + 1);
+  };
+
+  // Функция для получения отображаемого названия статуса
+  const getStatusDisplayName = (status) => {
+    const statusMap = {
+      processing: "В обработке",
+      confirmed: "Подтвержден",
+      shipped: "Отправлен",
+      in_transit: "В пути",
+      delivered: "Доставлен",
+      canceled: "Отменен"
+    };
+    return statusMap[status] || status;
+  };
+
+  // Функция для обновления статуса заказа
+  const updateOrderStatus = async (orderId, newStatus) => {
+    const token = Cookies.get("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/orders/${orderId}/update_status/`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const updatedOrders = orders.map((order) =>
+        order.id === orderId ? response.data : order
+      );
+      setOrders(updatedOrders);
+      toast.success("Статус заказа успешно обновлен");
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Ошибка при обновлении статуса заказа");
+      console.error("Ошибка:", error);
+    }
+  };
+
   const waveAnimation = `
     @keyframes wave-group {
       0% { transform: scale(0.3); opacity: 1; }
@@ -74,8 +121,14 @@ const SellerOrdersPage = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        setOrders(response.data);
-        setFilteredOrders(response.data);
+        // Сортируем заказы сразу после получения
+        const sortedOrders = [...response.data].sort((a, b) => {
+          const dateA = moment(a.created_at);
+          const dateB = moment(b.created_at);
+          return dateB - dateA; // Сортировка от новых к старым
+        });
+        setOrders(sortedOrders);
+        setFilteredOrders(sortedOrders);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -508,6 +561,29 @@ const SellerOrdersPage = () => {
                       </button>
                     </div>
                   )}
+                  {order.status !== "processing" && order.status !== "canceled" && order.status !== "delivered" && (
+                    <div className="mt-4 flex justify-end">
+                      <div className="flex items-center space-x-2">
+                        <select
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            if (newStatus) {
+                              updateOrderStatus(order.id, newStatus);
+                            }
+                          }}
+                          className="px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>Изменить статус</option>
+                          {getPossibleNextStatuses(order.status).map((status) => (
+                            <option key={status} value={status}>
+                              {getStatusDisplayName(status)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   {showCancelForm === order.id && (
                     <div className="mt-4">
                       <textarea
@@ -516,12 +592,23 @@ const SellerOrdersPage = () => {
                         onChange={(e) => setCancelReason(e.target.value)}
                         className="w-full p-2 border rounded dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
                       />
-                      <button
-                        onClick={() => cancelOrder(order.id, cancelReason)}
-                        className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        Отправить
-                      </button>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => cancelOrder(order.id, cancelReason)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          Отправить
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCancelForm(null);
+                            setCancelReason("");
+                          }}
+                          className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                        >
+                          Отмена
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

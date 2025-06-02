@@ -209,7 +209,7 @@ function Header() {
 
           {/* Mobile menu button */}
           <button
-            className="lg:hidden p-2 rounded-md hover:bg-gray-700 focus:outline-none"
+            className="xl:hidden p-2 rounded-md hover:bg-gray-700 focus:outline-none"
             onClick={toggleMobileMenu}
           >
             <svg
@@ -230,36 +230,36 @@ function Header() {
           </button>
 
           {/* Desktop navigation */}
-          <div className="hidden lg:flex items-center space-x-4">
+          <div className="hidden xl:flex items-center space-x-4">
             {isAuthenticated && user?.is_staff ? (
               <nav className="flex space-x-4">
-                <Link to="/admin" className="hover:text-gray-300">
+                <Link to="/admin" className="hover:text-gray-300 whitespace-nowrap">
                   Админ панель
                 </Link>
               </nav>
             ) : isAuthenticated ? (
-              <nav className="flex space-x-4">
-                <Link to="/orders" className="hover:text-gray-300">
+              <nav className="flex space-x-4 flex-wrap">
+                <Link to="/orders" className="hover:text-gray-300 whitespace-nowrap">
                   Мои заказы
                 </Link>
-                <Link to="/cart" className="hover:text-gray-300">
+                <Link to="/cart" className="hover:text-gray-300 whitespace-nowrap">
                   Корзина
                 </Link>
                 {showSellerLinks && (
                   <>
-                    <Link to="/my-products" className="hover:text-gray-300">
+                    <Link to="/my-products" className="hover:text-gray-300 whitespace-nowrap">
                       Мои объявления
                     </Link>
-                    <Link to="/seller-orders" className="hover:text-gray-300">
+                    <Link to="/seller-orders" className="hover:text-gray-300 whitespace-nowrap">
                       Заказы на мои товары
                     </Link>
-                    <Link to="/seller-statistics" className="hover:text-gray-300">
+                    <Link to="/seller-statistics" className="hover:text-gray-300 whitespace-nowrap">
                       Статистика
                     </Link>
                   </>
                 )}
                 {hasMessages && (
-                  <Link to="/messages" className="hover:text-gray-300 relative">
+                  <Link to="/messages" className="hover:text-gray-300 relative whitespace-nowrap">
                     Сообщения
                     {unreadCount > 0 && (
                       <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
@@ -268,7 +268,7 @@ function Header() {
                     )}
                   </Link>
                 )}
-                <Link to="/assistant" className="text-white hover:text-gray-300">
+                <Link to="/assistant" className="text-white hover:text-gray-300 whitespace-nowrap">
                   ИИ Помощник
                 </Link>
               </nav>
@@ -276,7 +276,7 @@ function Header() {
           </div>
 
           {/* User profile dropdown - always visible */}
-          <div className="hidden lg:block">
+          <div className="hidden xl:block">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -314,7 +314,7 @@ function Header() {
 
         {/* Mobile menu */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden mt-4 pb-4">
+          <div className="xl:hidden mt-4 pb-4">
             <nav className="flex flex-col space-y-4">
               {isAuthenticated && user?.is_staff ? (
                 <Link to="/admin" className="hover:text-gray-300">
