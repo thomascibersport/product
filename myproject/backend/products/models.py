@@ -133,14 +133,26 @@ class Message(models.Model):
         return f"Message from {self.sender} to {self.recipient}"
 
 class Review(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'На рассмотрении'),
+        ('approved', 'Одобрен'),
+        ('rejected', 'Отклонен'),
+    ]
+    
     author = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='authored_reviews', on_delete=models.CASCADE)
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_reviews', on_delete=models.CASCADE)
     content = models.TextField()
     rating = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='Статус отзыва'
+    )
 
     class Meta:
-        unique_together = ('author', 'recipient')
+        unique_together = ('author', 'recipient', 'status')
 
     def __str__(self):
         return f"Review by {self.author} for {self.recipient}"

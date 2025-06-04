@@ -76,6 +76,39 @@ const SellerOrdersPage = () => {
     }
   };
 
+  // Функция для подтверждения смены статуса
+  const confirmStatusChange = (orderId, newStatus) => {
+    toast(
+      <div>
+        <p>Вы уверены, что хотите изменить статус заказа на "{getStatusDisplayName(newStatus)}"?</p>
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => {
+              updateOrderStatus(orderId, newStatus);
+              toast.dismiss();
+            }}
+            className="px-3 py-1 bg-blue-600 text-white rounded mr-2 hover:bg-blue-700 transition-colors"
+          >
+            Да
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
+          >
+            Нет
+          </button>
+        </div>
+      </div>,
+      {
+        autoClose: false,
+        closeOnClick: false,
+        closeButton: false,
+        draggable: false,
+      }
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const waveAnimation = `
     @keyframes wave-group {
       0% { transform: scale(0.3); opacity: 1; }
@@ -568,7 +601,9 @@ const SellerOrdersPage = () => {
                           onChange={(e) => {
                             const newStatus = e.target.value;
                             if (newStatus) {
-                              updateOrderStatus(order.id, newStatus);
+                              confirmStatusChange(order.id, newStatus);
+                              // Сбрасываем значение select обратно на пустое
+                              e.target.value = "";
                             }
                           }}
                           className="px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"

@@ -647,34 +647,38 @@ const MyProductsPage = () => {
 
   const handleSubmit = useCallback(
     async (formData) => {
+      // Проверка обязательности категории
       if (!formData.category || formData.category === "") {
         setFormErrors({ category: "Категория обязательна" });
         return;
       }
-
+  
       setFormErrors({});
       const token = Cookies.get("token");
       if (!token) {
         toast.error("Требуется авторизация");
         return;
       }
-
+  
       try {
-        const data = new FormData();
-        data.append("seller_address", formData.seller_address);
-        data.append("name", formData.name);
-        data.append("description", formData.description);
-        data.append("delivery_available", formData.delivery_available);
-        data.append("category_id", Number(formData.category));
-        data.append("price", parseFloat(formData.price));
-        data.append("quantity", parseInt(formData.quantity, 10));
-        data.append("unit", formData.unit);
-        if (formData.image) {
-          data.append("image", formData.image);
-        }
-
         let response;
+        let actionType = "create"; // Для определения типа действия и вывода сообщения
+  
         if (formData.id) {
+          // Редактирование существующего продукта
+          actionType = "update";
+          const data = new FormData();
+          data.append("seller_address", formData.seller_address);
+          data.append("name", formData.name);
+          data.append("description", formData.description);
+          data.append("delivery_available", formData.delivery_available);
+          data.append("category_id", Number(formData.category));
+          data.append("price", parseFloat(formData.price));
+          data.append("quantity", parseInt(formData.quantity, 10));
+          data.append("unit", formData.unit);
+          if (formData.image) {
+            data.append("image", formData.image);
+          }
           response = await axios.put(
             `http://localhost:8000/api/products/${formData.id}/`,
             data,
@@ -686,18 +690,54 @@ const MyProductsPage = () => {
             }
           );
         } else {
-          response = await axios.post(
-            "http://localhost:8000/api/products/create/",
-            data,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-                Authorization: `Bearer ${token}`,
-              },
+          // Добавление нового продукта
+          const existingProduct = products.find((p) => p.name === formData.name);
+          if (existingProduct) {
+            // Продукт с таким названием уже существует — обновляем количество
+            actionType = "addQuantity";
+            const newQuantity =
+              existingProduct.quantity + parseInt(formData.quantity, 10);
+            const updateData = new FormData();
+            updateData.append("quantity", newQuantity);
+            // Обновляем только количество, остальные поля остаются прежними
+            response = await axios.put(
+              `http://localhost:8000/api/products/${existingProduct.id}/`,
+              updateData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+          } else {
+            // Продукта нет — создаем новый
+            const data = new FormData();
+            data.append("seller_address", formData.seller_address);
+            data.append("name", formData.name);
+            data.append("description", formData.description);
+            data.append("delivery_available", formData.delivery_available);
+            data.append("category_id", Number(formData.category));
+            data.append("price", parseFloat(formData.price));
+            data.append("quantity", parseInt(formData.quantity, 10));
+            data.append("unit", formData.unit);
+            if (formData.image) {
+              data.append("image", formData.image);
             }
-          );
+            response = await axios.post(
+              "http://localhost:8000/api/products/create/",
+              data,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+          }
         }
-
+  
+        // Обновление списка продуктов после операции
         const productsResponse = await axios.get(
           "http://localhost:8000/api/my-products/",
           {
@@ -705,7 +745,8 @@ const MyProductsPage = () => {
           }
         );
         setProducts(productsResponse.data);
-
+  
+        // Сброс формы и закрытие модального окна
         setFormState({
           name: "",
           description: "",
@@ -719,22 +760,25 @@ const MyProductsPage = () => {
         });
         setImagePreview(null);
         setIsModalOpen(false);
-        toast.success(
-          formData.id
-            ? "Продукт успешно обновлен!"
-            : "Продукт успешно добавлен!"
-        );
+  
+        // Уведомление в зависимости от типа действия
+        if (actionType === "update") {
+          toast.success("Продукт успешно обновлен!");
+        } else if (actionType === "addQuantity") {
+          toast.success("Количество продукта обновлено!");
+        } else {
+          toast.success("Продукт успешно добавлен!");
+        }
       } catch (error) {
+        // Обработка ошибок
         if (error.response) {
           if (error.response.data?.errors) {
             setFormErrors(
               Object.fromEntries(
-                Object.entries(error.response.data.errors).map(
-                  ([key, value]) => [
-                    key,
-                    Array.isArray(value) ? value.join(" ") : value,
-                  ]
-                )
+                Object.entries(error.response.data.errors).map(([key, value]) => [
+                  key,
+                  Array.isArray(value) ? value.join(" ") : value,
+                ])
               )
             );
           } else {
@@ -745,7 +789,7 @@ const MyProductsPage = () => {
         }
       }
     },
-    [categories, measurementUnits]
+    [categories, measurementUnits, products] // Добавляем products в зависимости
   );
 
   const deleteProduct = useCallback(

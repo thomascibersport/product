@@ -80,9 +80,14 @@ const OrdersPage = () => {
         const response = await axios.get("http://localhost:8000/api/orders/", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        console.log("Orders data:", response.data);
-        setOrders(response.data);
-        setFilteredOrders(response.data);
+        // Сортируем заказы сразу после получения
+        const sortedOrders = [...response.data].sort((a, b) => {
+          const dateA = moment(a.created_at);
+          const dateB = moment(b.created_at);
+          return dateB - dateA; // Сортировка от новых к старым
+        });
+        setOrders(sortedOrders);
+        setFilteredOrders(sortedOrders);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -93,8 +98,16 @@ const OrdersPage = () => {
   }, [navigate]);
 
   useEffect(() => {
-    let filtered = orders;
+    let filtered = [...orders]; // Создаем копию массива заказов
 
+    // Сначала применяем сортировку
+    filtered.sort((a, b) => {
+      const dateA = moment(a.created_at);
+      const dateB = moment(b.created_at);
+      return dateSort === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+    // Затем применяем фильтры
     if (searchTerm.length >= 3) {
       filtered = filtered.filter(
         (order) =>
@@ -132,12 +145,6 @@ const OrdersPage = () => {
         (order) => order.total_amount <= parseFloat(maxAmount)
       );
     }
-
-    filtered.sort((a, b) => {
-      const dateA = moment(a.created_at);
-      const dateB = moment(b.created_at);
-      return dateSort === "newest" ? dateB - dateA : dateA - dateB;
-    });
 
     setFilteredOrders(filtered);
     setCurrentPage(1);

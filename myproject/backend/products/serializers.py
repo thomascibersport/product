@@ -235,11 +235,12 @@ class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)
     author_name = serializers.SerializerMethodField()
     recipient = serializers.PrimaryKeyRelatedField(read_only=True)
+    status = serializers.ChoiceField(choices=Review.STATUS_CHOICES, default='pending', read_only=True)
 
     class Meta:
         model = Review
-        fields = ["id", "author", "author_name", "recipient", "content", "rating", "created_at"]
-        read_only_fields = ["author", "created_at", "recipient"]
+        fields = ["id", "author", "author_name", "recipient", "content", "rating", "created_at", "status"]
+        read_only_fields = ["author", "created_at", "recipient", "status"]
 
     def get_author_name(self, obj):
         return f"{obj.author.first_name} {obj.author.last_name}"
